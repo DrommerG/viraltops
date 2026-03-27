@@ -1,0 +1,9 @@
+# Environment variables (NUNCA subir al repo)
+.env
+.env.local
+
+# Node modules
+node_modules/
+
+# Data antigua (ahora va en public/data/)
+data/

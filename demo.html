@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>🎮 ViralTops — Demo</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root{
+  --bg:#0a0a0f;--bg2:#12121c;--card:#1a1a2e;--card2:#1e1e35;--sidebar:#0d0d18;--modal:#14142a;
+  --purple:#7c3aed;--purple2:#9d5ef5;--cyan:#06b6d4;--cyan2:#22d3ee;--pink:#f72585;
+  --gold:#ffd700;--green:#10b981;--orange:#ff6348;--blue:#4cc9f0;
+  --t1:#f0f0ff;--t2:#a8a8c8;--tm:#6b6b8f;
+  --bcard:rgba(124,58,237,.25);--r:12px;--tr:.3s cubic-bezier(.4,0,.2,1);
+  --sw:270px;--th:64px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--t1);min-height:100vh;overflow-x:hidden}
+a{text-decoration:none;color:inherit}ul{list-style:none}button{cursor:pointer;border:none;background:none}
+
+/* Particles */
+#pts{position:fixed;inset:0;pointer-events:none;z-index:0;overflow:hidden}
+.pt{position:absolute;border-radius:50%;animation:fp linear infinite;opacity:0}
+@keyframes fp{0%{opacity:0;transform:translateY(100vh) scale(0)}10%{opacity:.6}90%{opacity:.3}100%{opacity:0;transform:translateY(-20px) scale(1.2)}}
+
+/* Layout */
+.sidebar{position:fixed;top:0;left:0;width:var(--sw);height:100vh;background:var(--sidebar);border-right:1px solid var(--bcard);display:flex;flex-direction:column;z-index:100;transition:transform var(--tr);overflow-y:auto;scrollbar-width:thin;scrollbar-color:var(--purple) transparent}
+.sidebar::-webkit-scrollbar{width:4px}.sidebar::-webkit-scrollbar-thumb{background:var(--purple);border-radius:2px}
+.main{margin-left:var(--sw);min-height:100vh;position:relative;z-index:1}
+
+/* Sidebar Header */
+.sh{padding:20px 16px 16px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--bcard)}
+.logo{display:flex;align-items:center;gap:12px}
+.logo-ico{font-size:32px;filter:drop-shadow(0 0 12px rgba(124,58,237,.8));animation:pg 3s ease-in-out infinite}
+@keyframes pg{0%,100%{filter:drop-shadow(0 0 10px rgba(124,58,237,.6))}50%{filter:drop-shadow(0 0 20px rgba(247,37,133,.8))}}
+.logo-t{font-family:'Orbitron',sans-serif;font-weight:900;font-size:18px;background:linear-gradient(135deg,var(--purple2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;letter-spacing:2px}
+.logo-s{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:1px}
+.stoggle{color:var(--tm);font-size:16px;padding:6px;display:none;transition:color var(--tr)}
+.stoggle:hover{color:var(--pink)}
+
+/* Refresh badge */
+.rbadge{margin:12px 16px;padding:12px;background:rgba(255,215,0,.08);border:1px solid rgba(255,215,0,.25);border-radius:8px;display:flex;align-items:center;gap:10px}
+.rl{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px}
+.rd{font-size:12px;color:var(--gold);font-weight:600}
+
+/* Nav */
+.snav{flex:1;padding:8px 0}
+.nsec{padding:12px 20px 6px;font-size:10px;text-transform:uppercase;letter-spacing:1.5px;color:var(--tm);font-weight:600}
+.ni{display:flex;align-items:center;gap:12px;padding:12px 20px;cursor:pointer;transition:all var(--tr);position:relative;overflow:hidden}
+.ni::before{content:'';position:absolute;left:0;top:0;width:3px;height:100%;background:var(--ic,var(--purple));transform:scaleY(0);transition:transform var(--tr);border-radius:0 2px 2px 0}
+.ni:hover,.ni.active{background:rgba(124,58,237,.1)}
+.ni:hover::before,.ni.active::before{transform:scaleY(1)}
+.ni.active{background:rgba(124,58,237,.15)}
+.ni-ico{font-size:20px;min-width:28px;text-align:center;transition:transform var(--tr)}
+.ni:hover .ni-ico{transform:scale(1.2)}
+.ni-lbl{font-size:14px;font-weight:600;color:var(--t2);transition:color var(--tr);font-family:'Rajdhani',sans-serif;letter-spacing:.5px}
+.ni:hover .ni-lbl,.ni.active .ni-lbl{color:var(--t1)}
+.ni-cnt{margin-left:auto;font-size:11px;background:rgba(124,58,237,.3);color:var(--purple2);padding:2px 8px;border-radius:10px;font-weight:600}
+
+/* Sidebar footer */
+.sf{padding:16px;border-top:1px solid var(--bcard)}
+.btnr{width:100%;padding:12px;background:linear-gradient(135deg,var(--purple),var(--cyan));color:#fff;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:14px;letter-spacing:1px;border-radius:8px;display:flex;align-items:center;justify-content:center;gap:8px;transition:all var(--tr);box-shadow:0 0 20px rgba(124,58,237,.4)}
+.btnr:hover{transform:translateY(-2px);box-shadow:0 0 30px rgba(124,58,237,.6)}
+.btnr span{font-size:18px}
+
+/* Topbar */
+.topbar{height:var(--th);background:rgba(10,10,15,.9);backdrop-filter:blur(20px);border-bottom:1px solid var(--bcard);display:flex;align-items:center;padding:0 24px;gap:16px;position:sticky;top:0;z-index:50}
+.mbtn{color:var(--t2);font-size:22px;padding:8px;display:none;transition:color var(--tr)}
+.mbtn:hover{color:var(--purple2)}
+.tt{display:flex;align-items:center;gap:10px;font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;background:linear-gradient(135deg,var(--purple2),var(--cyan));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.tt span:first-child{font-size:22px;-webkit-text-fill-color:initial}
+.tr2{margin-left:auto;display:flex;align-items:center;gap:12px}
+.wb{padding:6px 14px;background:rgba(255,215,0,.1);border:1px solid rgba(255,215,0,.3);border-radius:20px;font-size:12px;color:var(--gold);font-weight:600}
+.demo-pill{padding:6px 14px;background:rgba(247,37,133,.15);border:1px solid rgba(247,37,133,.4);border-radius:20px;font-size:12px;color:var(--pink);font-weight:600}
+
+/* Hero */
+.hero{position:relative;padding:48px 32px 40px;overflow:hidden;border-bottom:1px solid var(--bcard)}
+.hglow{position:absolute;top:-50%;right:-100px;width:600px;height:600px;border-radius:50%;filter:blur(120px);opacity:.12;pointer-events:none;transition:background var(--tr)}
+.hc{position:relative;z-index:1}
+.hico{font-size:56px;margin-bottom:12px;filter:drop-shadow(0 0 20px rgba(124,58,237,.6));display:inline-block;animation:hf 4s ease-in-out infinite}
+@keyframes hf{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+.htitle{font-family:'Orbitron',sans-serif;font-weight:900;font-size:clamp(28px,4vw,48px);background:linear-gradient(135deg,#fff 0%,var(--purple2) 50%,var(--cyan) 100%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-bottom:8px;line-height:1.1}
+.hdesc{font-size:16px;color:var(--t2);max-width:500px;margin-bottom:16px}
+.hstats{display:flex;gap:20px;flex-wrap:wrap}
+.hst{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--tm)}
+.hst strong{color:var(--cyan);font-weight:700}
+
+/* Content */
+.content{padding:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:24px}
+
+/* Card */
+.vc{background:var(--card);border:1px solid var(--bcard);border-radius:16px;overflow:hidden;cursor:pointer;transition:all var(--tr);animation:ce .5s ease backwards;position:relative}
+.vc:nth-child(1){animation-delay:.05s}.vc:nth-child(2){animation-delay:.10s}.vc:nth-child(3){animation-delay:.15s}
+.vc:nth-child(4){animation-delay:.20s}.vc:nth-child(5){animation-delay:.25s}
+@keyframes ce{from{opacity:0;transform:translateY(30px) scale(.95)}to{opacity:1;transform:translateY(0) scale(1)}}
+.vc:hover{transform:translateY(-6px) scale(1.01);border-color:rgba(124,58,237,.6);box-shadow:0 0 20px rgba(124,58,237,.4),0 20px 60px rgba(0,0,0,.5);background:var(--card2)}
+.vc[data-rank="1"]{border-color:rgba(255,215,0,.4)}.vc[data-rank="1"]:hover{box-shadow:0 0 20px rgba(255,215,0,.5),0 20px 60px rgba(0,0,0,.5)}
+.vc[data-rank="2"]{border-color:rgba(192,192,192,.35)}.vc[data-rank="3"]{border-color:rgba(205,127,50,.35)}
+.ct{position:relative;aspect-ratio:16/9;overflow:hidden;background:var(--bg2)}
+.ct img{width:100%;height:100%;object-fit:cover;transition:transform .5s ease}
+.vc:hover .ct img{transform:scale(1.08)}
+.cr{position:absolute;top:10px;left:10px;font-family:'Orbitron',sans-serif;font-weight:900;font-size:13px;padding:4px 10px;border-radius:6px;z-index:2}
+.r1{background:var(--gold);color:#000;box-shadow:0 0 20px rgba(255,215,0,.5)}
+.r2{background:#c0c0c0;color:#000}.r3{background:#cd7f32;color:#fff}
+.ro{background:rgba(10,10,15,.85);color:var(--t2);border:1px solid var(--bcard)}
+.cdur{position:absolute;bottom:8px;right:8px;background:rgba(0,0,0,.85);color:#fff;font-size:11px;font-weight:600;padding:3px 7px;border-radius:4px}
+.cplay{position:absolute;inset:0;background:rgba(124,58,237,.3);display:flex;align-items:center;justify-content:center;opacity:0;transition:opacity var(--tr)}
+.cplay svg{width:56px;height:56px;fill:#fff;filter:drop-shadow(0 0 16px rgba(255,255,255,.7))}
+.vc:hover .cplay{opacity:1}
+.cb{padding:16px}
+.ctitle{font-size:14px;font-weight:600;line-height:1.4;color:var(--t1);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px;min-height:40px}
+.cch{font-size:12px;color:var(--cyan);font-weight:600;margin-bottom:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cs{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:12px}
+.si{display:flex;flex-direction:column;align-items:center;background:var(--bg2);padding:8px 4px;border-radius:8px;border:1px solid rgba(255,255,255,.05);gap:2px}
+.si-ico{font-size:14px}.si-val{font-size:12px;font-weight:700;color:var(--t1);font-family:'Rajdhani',sans-serif}
+.si-lbl{font-size:9px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px}
+.vbw{display:flex;align-items:center;gap:8px}
+.vbl{font-size:10px;color:var(--tm);white-space:nowrap;text-transform:uppercase;letter-spacing:.5px}
+.vb{flex:1;height:4px;background:rgba(255,255,255,.08);border-radius:2px;overflow:hidden}
+.vbf{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--purple),var(--pink));transition:width 1s ease;box-shadow:0 0 8px rgba(247,37,133,.5)}
+.vp{font-size:11px;font-weight:700;color:var(--pink);font-family:'Orbitron',sans-serif;min-width:32px;text-align:right}
+
+/* Modal */
+.mo{position:fixed;inset:0;background:rgba(0,0,0,.85);backdrop-filter:blur(8px);z-index:200;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px}
+.modal{background:var(--modal);border:1px solid var(--bcard);border-radius:16px;width:100%;max-width:1100px;position:relative;animation:me .3s ease;overflow:hidden;box-shadow:0 0 80px rgba(124,58,237,.3),0 40px 100px rgba(0,0,0,.7)}
+@keyframes me{from{opacity:0;transform:scale(.92) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.mc{position:absolute;top:16px;right:16px;width:36px;height:36px;background:rgba(255,255,255,.1);color:var(--t1);border-radius:50%;font-size:16px;display:flex;align-items:center;justify-content:center;z-index:10;transition:all var(--tr)}
+.mc:hover{background:var(--pink);transform:rotate(90deg)}
+.mrk{position:absolute;top:16px;left:16px;font-family:'Orbitron',sans-serif;font-weight:900;font-size:14px;background:var(--gold);color:#000;padding:4px 12px;border-radius:20px;z-index:10;box-shadow:0 0 20px rgba(255,215,0,.5)}
+.mpw{position:relative;width:100%;aspect-ratio:16/9;background:#000}
+.mpw iframe{width:100%;height:100%}
+.mb{display:grid;grid-template-columns:1fr 1fr;gap:28px;padding:28px}
+.mt{font-size:18px;font-weight:700;color:var(--t1);margin-bottom:10px;line-height:1.4}
+.mch{display:inline-flex;align-items:center;gap:6px;font-size:14px;color:var(--cyan);font-weight:600;margin-bottom:16px;transition:color var(--tr)}
+.mch:hover{color:var(--cyan2)}.mch::before{content:'📺'}
+.ms{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px}
+.msi{background:var(--card);border:1px solid var(--bcard);border-radius:8px;padding:14px;text-align:center}
+.msi-ico{font-size:22px;margin-bottom:4px}
+.msi-v{font-family:'Orbitron',sans-serif;font-weight:700;font-size:16px;color:var(--t1)}
+.msi-l{font-size:11px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px;margin-top:2px}
+.myl{display:inline-flex;align-items:center;gap:8px;padding:12px 24px;background:#ff0000;color:#fff;border-radius:8px;font-weight:700;font-size:14px;transition:all var(--tr);box-shadow:0 0 20px rgba(255,0,0,.3)}
+.myl:hover{background:#cc0000;transform:translateY(-2px);box-shadow:0 0 30px rgba(255,0,0,.5)}
+.ac{background:var(--card);border:1px solid var(--bcard);border-radius:8px;padding:16px;margin-bottom:12px}
+.ac.acc{border-color:rgba(247,37,133,.3);background:rgba(247,37,133,.06)}
+.ac.acg{border-color:rgba(16,185,129,.3);background:rgba(16,185,129,.06)}
+.at{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:1px;color:var(--purple2);margin-bottom:8px}
+.ac.acc .at{color:var(--pink)}.ac.acg .at{color:var(--green)}
+.ax{font-size:13px;color:var(--t2);line-height:1.6}
+.pl{display:flex;flex-direction:column;gap:6px}
+.pl li{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--t2)}
+.pl li::before{content:'▸';color:var(--purple2);font-size:12px;flex-shrink:0}
+.sm{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:4px}
+.smi{background:var(--card);border:1px solid var(--bcard);border-radius:8px;padding:12px;text-align:center}
+.smv{font-family:'Orbitron',sans-serif;font-weight:700;font-size:20px;margin-bottom:4px}
+.sml{font-size:10px;color:var(--tm);text-transform:uppercase;letter-spacing:.5px}
+.hidden{display:none!important}
+::-webkit-scrollbar{width:6px;height:6px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(124,58,237,.5);border-radius:3px}
+
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%)}.sidebar.open{transform:translateX(0);box-shadow:4px 0 40px rgba(0,0,0,.8)}
+  .stoggle,.mbtn{display:flex}.main{margin-left:0}.content{padding:20px 16px}.hero{padding:28px 20px}
+  .grid{grid-template-columns:1fr;gap:16px}.htitle{font-size:24px}
+  .mo{padding:10px}.mb{grid-template-columns:1fr;padding:20px;gap:20px}
+}
+@media(max-width:480px){.topbar{padding:0 16px}.tt{font-size:14px}.wb{display:none}}
+</style>
+</head>
+<body>
+
+<div id="pts"></div>
+
+<aside class="sidebar" id="sidebar">
+  <div class="sh">
+    <div class="logo">
+      <span class="logo-ico">🎮</span>
+      <div><div class="logo-t">ViralTops</div><div class="logo-s">YouTube Rankings</div></div>
+    </div>
+    <button class="stoggle" id="st">✕</button>
+  </div>
+  <div class="rbadge">
+    <span>⏰</span>
+    <div><div class="rl">Próxima actualización</div><div class="rd">Lunes 30 Mar 2026</div></div>
+  </div>
+  <nav class="snav" id="snav"></nav>
+  <div class="sf">
+    <button class="btnr"><span>↻</span> Actualizar Ahora</button>
+  </div>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <button class="mbtn" id="mb">☰</button>
+    <div class="tt"><span id="tpico">🌍</span><span id="tpname">Top Mundial</span></div>
+    <div class="tr2">
+      <div class="demo-pill">🎬 DEMO</div>
+      <div class="wb">📅 Semana 24 Mar 2026</div>
+    </div>
+  </header>
+
+  <div class="hero">
+    <div class="hglow" id="hglow"></div>
+    <div class="hc">
+      <div class="hico" id="hico">🌍</div>
+      <h1 class="htitle" id="htitle">Top Mundial</h1>
+      <p class="hdesc" id="hdesc">Los 15 videos más virales del planeta</p>
+      <div class="hstats">
+        <div class="hst">👁️ <strong>47.2B</strong> vistas totales</div>
+        <div class="hst">👍 <strong>1.8B</strong> likes totales</div>
+        <div class="hst">🏆 <strong>15</strong> videos</div>
+      </div>
+    </div>
+  </div>
+
+  <main class="content">
+    <div class="grid" id="grid"></div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="mo hidden" id="mo">
+  <div class="modal" id="modal">
+    <button class="mc" id="mclose">✕</button>
+    <div class="mrk" id="mrk">#1</div>
+    <div class="mpw"><iframe id="mplayer" src="" frameborder="0" allow="accelerometer;autoplay;clipboard-write;encrypted-media;gyroscope;picture-in-picture" allowfullscreen></iframe></div>
+    <div class="mb">
+      <div>
+        <h2 class="mt" id="mt"></h2>
+        <a class="mch" id="mch" href="#" target="_blank"></a>
+        <div class="ms" id="mstats"></div>
+        <a class="myl" id="myl" href="#" target="_blank">▶ Ver en YouTube</a>
+      </div>
+      <div>
+        <div class="ac"><div class="at">🔥 ¿Por qué es viral?</div><p class="ax" id="awv"></p></div>
+        <div class="ac"><div class="at">📌 Patrones de Viralidad</div><ul class="pl" id="apt"></ul></div>
+        <div class="ac acc"><div class="at">⚡ Enganche Principal</div><p class="ax" id="aep"></p></div>
+        <div class="ac acg"><div class="at">💡 Consejo para Creadores</div><p class="ax" id="atip"></p></div>
+        <div class="sm" id="asm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── DEMO DATA ─────────────────────────────────────────────────────────
+const CATS = [
+  {key:'mundial',    name:'Top Mundial',        icon:'🌍', color:'#ffd700', desc:'Los videos más virales del mundo'},
+  {key:'espanol',    name:'Top Español',         icon:'🇪🇸', color:'#ff4757', desc:'Los videos más virales en español'},
+  {key:'ingles',     name:'Top Inglés',          icon:'🇺🇸', color:'#4cc9f0', desc:'Los videos más virales en inglés'},
+  {key:'ninos',      name:'Top Niños',           icon:'🧸', color:'#ffa502', desc:'El contenido más popular para niños'},
+  {key:'videojuegos',name:'Top Videojuegos',     icon:'🎮', color:'#7c3aed', desc:'Los videos de gaming más virales'},
+  {key:'documentales',name:'Top Documentales',  icon:'🎬', color:'#2ed573', desc:'Los documentales más vistos'},
+  {key:'entretenimiento',name:'Top Entretenimiento',icon:'🎭',color:'#f72585',desc:'El entretenimiento más viral'},
+  {key:'musica',     name:'Top Música',          icon:'🎵', color:'#ff6b81', desc:'Los videos musicales más populares'},
+  {key:'ia',         name:'Top IA / AI',         icon:'🤖', color:'#00d4ff', desc:'Videos creados con Inteligencia Artificial'},
+  {key:'deportes',   name:'Top Deportes',        icon:'⚽', color:'#ff6348', desc:'Los videos deportivos más virales'},
+  {key:'tecnologia', name:'Top Tecnología',      icon:'💻', color:'#70a1ff', desc:'Tecnología e innovación viral'},
+  {key:'comedia',    name:'Top Comedia',         icon:'😂', color:'#eccc68', desc:'Los videos más graciosos y virales'},
+];
+
+const VIDEOS = {
+  mundial:[
+    {id:'PHgp8AmVXJE',rank:1,title:'Baby Shark Dance | #babyshark Most Viewed Video',ch:'Pinkfong',views:'14.3B',likes:'14.3M',comments:'14.1M',dur:'2:17',vir:98,
+     ana:{v:'Baby Shark rompió récords gracias a su melodía ultra pegajosa, colores brillantes y baile que niños de todo el mundo pueden repetir fácilmente.',p:['Melodía repetitiva y pegajosa','Animaciones coloridas para niños','Participación activa (baile)','Contenido familiar universal'],e:'El coro que todos terminan cantando involuntariamente',t:'Crea contenido que invite a la participación física, especialmente coreografías simples.',s:98,sent:82,ai:10}},
+    {id:'kTyPVilsIz0',rank:2,title:'Luis Fonsi - Despacito ft. Daddy Yankee',ch:'Luis Fonsi',views:'8.4B',likes:'51M',comments:'5.2M',dur:'4:42',vir:94,
+     ana:{v:'Despacito conquistó el mundo con su ritmo latino irresistible, colaboración estratégica y un video exótico filmado en Puerto Rico que captó audiencias globales.',p:['Colaboración de artistas populares','Ritmo bailable universal','Video en locación exótica y auténtica','Mezcla de español e inglés (remix)'],e:'El ritmo que hace mover el cuerpo instantáneamente',t:'Las colaboraciones multiplican el alcance. Busca artistas de audiencias complementarias a la tuya.',s:94,sent:90,ai:9}},
+    {id:'JGwWNGJdvx8',rank:3,title:'Ed Sheeran - Shape of You (Official Music Video)',ch:'Ed Sheeran',views:'6.3B',likes:'30M',comments:'3.8M',dur:'4:24',vir:90,
+     ana:{v:'Shape of You combinó una narrativa visual única con un beat innovador que mezcló pop, dancehall y tropical, siendo irresistible para múltiples demografías.',p:['Beat innovador y diferente','Historia visual con narrativa clara','Artista con fanbase masiva','Producción de alta calidad'],e:'El saxofón y el "Oh I oh I oh" que entra en la cabeza inmediatamente',t:'Arriesga con sonidos únicos. Lo predecible se olvida; lo diferente se comparte.',s:90,sent:88,ai:9}},
+    {id:'RgKAFK5djSk',rank:4,title:'Wiz Khalifa - See You Again ft. Charlie Puth (Furious 7)',ch:'Wiz Khalifa',views:'6.1B',likes:'31M',comments:'3.2M',dur:'3:59',vir:87,
+     ana:{v:'See You Again tuvo el impacto emocional de ser el homenaje a Paul Walker, conectando con millones que amaban la saga Fast & Furious, haciendo que el compartir fuera inevitable.',p:['Conexión emocional profunda','Asociación con marca icónica (F&F)','Tema universal (despedida/pérdida)','Dueto equilibrado rap+melodía'],e:'El tributo a Paul Walker que hizo llorar a millones',t:'El contenido emocional genuino supera al entretenimiento puro. Encuentra la historia humana detrás de tu tema.',s:87,sent:85,ai:9}},
+    {id:'9bZkp7q19f0',rank:5,title:'PSY - GANGNAM STYLE(강남스타일) M/V',ch:'officialpsy',views:'5.3B',likes:'24M',comments:'4.7M',dur:'4:13',vir:85,
+     ana:{v:'Gangnam Style fue la primera viralidad global de internet moderno: un video absurdo y divertido con un baile imposible de olvidar que trascendió barreras de idioma.',p:['Humor absurdo y sin barreras de idioma','Baile icónico y fácil de imitar','Novedad absoluta (K-Pop desconocido en occidente)','Efecto de curiosidad: nadie sabía qué era'],e:'El "baile del caballo" que todos quisieron imitar en fiestas y oficinas',t:'El humor universal y los bailes imitables son el contenido más compartido. No necesitas que te entiendan; necesitas que te sientan.',s:85,sent:78,ai:8}},
+  ],
+  espanol:[
+    {id:'kTyPVilsIz0',rank:1,title:'Luis Fonsi - Despacito ft. Daddy Yankee',ch:'Luis Fonsi',views:'8.4B',likes:'51M',comments:'5.2M',dur:'4:42',vir:98,
+     ana:{v:'La canción en español más escuchada de la historia. Fonsi y Daddy Yankee crearon el perfecto himno urbano latino con un video que captura la esencia del Caribe.',p:['Colaboración de leyendas del reggaetón','Ritmo tropical irresistible','Autenticidad cultural puertorriqueña','Remix en inglés amplió el alcance global'],e:'El primer verso que hace que todos canten aunque no sepan la letra',t:'La autenticidad cultural es un superpoder. No imites tendencias; amplifica tu identidad.',s:98,sent:92,ai:10}},
+    {id:'OPf0YbXqDm0',rank:2,title:'Mark Ronson - Uptown Funk ft. Bruno Mars',ch:'Mark Ronson',views:'4.9B',likes:'22M',comments:'3.1M',dur:'4:30',vir:88,
+     ana:{v:'Aunque es en inglés, tiene un groove que trasciende idiomas y es extremadamente popular en LATAM. La producción retro-funk y la energía de Bruno Mars son hipnóticas.',p:['Producción retro que suena fresca','Energía y carisma desbordante','Video coreografiado de alta calidad','Colaboración estratégica productor-artista'],e:'El "Don\'t believe me, just watch" que todos repiten',t:'La energía positiva es contagiosa. Pon toda tu pasión visible en el video.',s:88,sent:86,ai:9}},
+    {id:'pRpeEdMmmQ0',rank:3,title:'Shakira, Bizarrap - BZRP Music Sessions #53',ch:'Bizarrap',views:'700M',likes:'9.2M',comments:'780K',dur:'2:51',vir:85,
+     ana:{v:'La session más vista de Bizarrap capitaliza el morbo de la separación Shakira-Piqué. La vulnerabilidad real convertida en arte fue el combustible perfecto para la viralidad.',p:['Contexto mediático masivo previo','Letras con dobles sentidos virales ("una loba como yo no está pa\' tipos como tú")','Formato innovador (sessions)','Empowerment femenino que inspira a compartir'],e:'La frase "Las mujeres ya no lloran, las mujeres facturan"',t:'Cuando la vida real alimenta el arte, el resultado es auténtico. La vulnerabilidad honesta conecta más que la perfección calculada.',s:85,sent:79,ai:9}},
+    {id:'uelHwf8o7_U',rank:4,title:'Bad Bunny - Me Porto Bonito ft. Chencho Corleone',ch:'Bad Bunny',views:'980M',likes:'8.1M',comments:'520K',dur:'3:27',vir:82,
+     ana:{v:'Bad Bunny domina el charts globales con un estilo que mezcla reggaetón clásico con trap moderno, y su personalidad auténtica lo hace el artista latino más influyente de la era.',p:['Artista con fanbase fanático y leal','Sonido que evoluciona pero mantiene identidad','Videos en locaciones auténticas del Caribe','Título que genera curiosidad'],e:'El hook tropical que transporta mentalmente a la playa',t:'Construye una identidad artística tan fuerte que los fans la defiendan por ti.',s:82,sent:87,ai:8}},
+    {id:'x3AqTDxAeIg',rank:5,title:'J Balvin, Willy William - Mi Gente',ch:'J Balvin',views:'1.2B',likes:'7.8M',comments:'390K',dur:'3:24',vir:79,
+     ana:{v:'Mi Gente fue el himno global del reggaetón en su pico de popularidad, con un video diverso y un ritmo que encapsuló perfectamente el espíritu festivo de una generación.',p:['Ritmo bailable con influencias globales','Video colorido y diverso visualmente','Artista en el pico de su popularidad','Colaboración internacional (colombiano + francés)'],e:'El drop del beat que hace imposible no moverse',t:'Colabora con artistas de otros países o géneros. La diversidad de influencias crea sonidos únicos.',s:79,sent:84,ai:8}},
+  ],
+  ingles:[
+    {id:'JGwWNGJdvx8',rank:1,title:'Ed Sheeran - Shape of You (Official Music Video)',ch:'Ed Sheeran',views:'6.3B',likes:'30M',comments:'3.8M',dur:'4:24',vir:97,
+     ana:{v:'Shape of You demostró que Ed Sheeran podía dominar cualquier género. El beat experimental combinado con su storytelling lo hizo irresistible para audiencias globales.',p:['Beat innovador que mezcla géneros','Storytelling visual con historia de amor','Artista con credibilidad transversal','Producción que suena diferente a todo'],e:'El "Oh I oh I oh" del intro que todos reconocen en 2 segundos',t:'Experimenta con géneros fuera de tu zona de confort. La sorpresa es una herramienta viral poderosa.',s:97,sent:89,ai:9}},
+    {id:'RgKAFK5djSk',rank:2,title:'Wiz Khalifa - See You Again ft. Charlie Puth',ch:'Wiz Khalifa',views:'6.1B',likes:'31M',comments:'3.2M',dur:'3:59',vir:92,
+     ana:{v:'La combinación perfecta de rap y melodía pop, unida a una causa emocional real (homenaje a Paul Walker), creó el contexto ideal para que millones lo compartieran como acto de amor.',p:['Emoción genuina y propósito claro','Combinación rap+pop maximiza audiencia','Asociación con IP masiva (Fast & Furious)','Producción cinematográfica del video'],e:'El piano de Charlie Puth en el intro que activa nostalgia instantánea',t:'Da a tu contenido un propósito mayor que el entretenimiento. El "¿para qué sirve esto?" aumenta el sharing.',s:92,sent:84,ai:9}},
+    {id:'OPf0YbXqDm0',rank:3,title:'Mark Ronson - Uptown Funk ft. Bruno Mars',ch:'Mark Ronson',views:'4.9B',likes:'22M',comments:'3.1M',dur:'4:30',vir:88,
+     ana:{v:'Uptown Funk fue la resurrección del funk de los 70s para la generación millennial. Bruno Mars convirtió la nostalgia en algo completamente fresco e irresistible.',p:['Nostalgia repackaged para nueva generación','Performance impecable y carismático','Video de producción cinematográfica','Ritmo que no pasa de moda'],e:'Las primeras 4 notas del bajo que hacen que todos empiecen a moverse',t:'Estudia la música clásica que marcó generaciones. Modernizarla para audiencias actuales es una estrategia ganadora.',s:88,sent:91,ai:9}},
+    {id:'09R8_2nJtjg',rank:4,title:'Maroon 5 - Sugar (Official Music Video)',ch:'Maroon 5',views:'3.8B',likes:'16M',comments:'1.4M',dur:'3:55',vir:82,
+     ana:{v:'Sugar demostró que un concepto simple y divertido (sorprender bodas) puede volverse más viral que producción costosa. La alegría genuina de los involucrados era palpable.',p:['Concepto creativo y sorpresivo','Contenido feel-good que inspira compartir','Cameos en situaciones reales y emotivas','Producción de alto nivel con toque íntimo'],e:'La sorpresa de ver a Maroon 5 aparecer en bodas reales',t:'Los conceptos simples y con corazón superan a los elaborados y fríos. ¿Qué emoción quieres provocar?',s:82,sent:93,ai:8}},
+    {id:'YVkUvmDQ3HY',rank:5,title:'Maroon 5 - Moves Like Jagger ft. Christina Aguilera',ch:'Maroon 5',views:'2.2B',likes:'9.8M',comments:'850K',dur:'3:21',vir:76,
+     ana:{v:'La combinación de dos leyendas pop con un funk contemporáneo creó un himno de confianza que resonó en discotecas y radios simultáneamente en todo el mundo.',p:['Colaboración de dos leyendas pop','Ritmo de gym/fiesta que da energía','Letra empoderada y confiada','Coreografía memorable'],e:'La actitud desenfadada de Adam Levine que transmite confianza total',t:'La confianza es contagiosa. Si TÚ crees en tu contenido, tu audiencia también lo hará.',s:76,sent:82,ai:8}},
+  ],
+  ninos:[
+    {id:'PHgp8AmVXJE',rank:1,title:'Baby Shark Dance | #babyshark Most Viewed Video',ch:'Pinkfong',views:'14.3B',likes:'14.3M',comments:'14.1M',dur:'2:17',vir:99,
+     ana:{v:'Baby Shark es el fenómeno más grande de la historia de YouTube. Su éxito se basa en la psicología infantil: melodías simples, colores primarios y movimiento repetitivo que los niños adoran.',p:['Melodía ultra repetitiva y pegajosa','Colores primarios que atraen la atención infantil','Baile simple que los niños pueden imitar','Duración perfecta para la concentración infantil'],e:'Los primeros 3 segundos donde el tiburón aparece cantando',t:'Para contenido infantil: simplicidad máxima, colores brillantes, repetición y participación física. Los padres eligen el canal, pero los niños lo piden a gritos.',s:99,sent:75,ai:10}},
+    {id:'tos-1J4SEVY',rank:2,title:'Wheels on the Bus | Kids Songs | Super Simple Songs',ch:'Super Simple Songs',views:'6.3B',likes:'3.1M',comments:'450K',dur:'3:09',vir:92,
+     ana:{v:'Las canciones con objetos cotidianos y movimientos que imitan la vida real son perfectas para el aprendizaje infantil. La animación limpia y los colores saturados mantienen la atención.',p:['Animación limpia sin distracciones','Canciones de aprendizaje con objetos conocidos','Movimientos corporales que estimulan el desarrollo','Canal con catálogo enorme que genera sesiones largas'],e:'La voz suave y clara que los niños pueden seguir cantando',t:'El contenido educativo para niños que también entretiene tiene el mayor retorno. Los padres lo buscan activamente.',s:92,sent:78,ai:9}},
+    {id:'aBR8HpKFpNY',rank:3,title:'Johny Johny Yes Papa | Nursery Rhymes | ChuChu TV',ch:'ChuChu TV Nursery Rhymes',views:'5.4B',likes:'2.8M',comments:'380K',dur:'2:14',vir:87,
+     ana:{v:'La narrativa simple de un niño haciendo travesuras es universalmente relatable para padres e hijos. El ritmo y las repeticiones convierten el contenido en karaoke espontáneo para bebés.',p:['Narrativa simple y universal (travesuras de niños)','Personajes 3D adorables y expresivos','Repetición de frases que facilita el aprendizaje','Duración perfecta para atención infantil'],e:'La interacción entre padre e hijo que todos los niños reconocen',t:'Las historias con personajes queribles que hacen travesuras son el arquetipo del contenido infantil viral.',s:87,sent:72,ai:8}},
+    {id:'Xhd5oreIJKY',rank:4,title:'Five Little Monkeys | CoComelon Nursery Rhymes',ch:'Cocomelon - Nursery Rhymes',views:'4.1B',likes:'2.3M',comments:'290K',dur:'2:48',vir:83,
+     ana:{v:'CoComelon domina YouTube Kids con una fórmula perfecta: animaciones 3D de alta calidad, canciones educativas y una familia diversa con la que todos los niños pueden identificarse.',p:['Animación 3D de calidad cinematográfica','Familia diversa e inclusiva','Mezcla perfecta de educación y entretenimiento','Canal con ecosistema completo de personajes'],e:'Los colores ultravibrantes y la música que hace a los bebés sonreír instantáneamente',t:'Invierte en calidad de animación para contenido infantil. Los padres pagan por calidad visual que no canse los ojos de sus hijos.',s:83,sent:80,ai:8}},
+    {id:'WQ4JbWJW5Xs',rank:5,title:'Old MacDonald Had a Farm | Kids Songs | Super Simple Songs',ch:'Super Simple Songs',views:'3.2B',likes:'1.8M',comments:'210K',dur:'3:12',vir:78,
+     ana:{v:'Las canciones tradicionales en versión animada son eternas. Old MacDonald funciona porque conecta con la naturaleza, los animales y el sonido onomatopéyico que fascina a los niños.',p:['Canción tradicional con reconocimiento inmediato','Sonidos de animales que los niños imitan','Animación de granja con colores naturales brillantes','Aprendizaje de animales y sus sonidos'],e:'Los sonidos de animales que los niños repiten en bucle',t:'Las canciones tradicionales nunca pasan de moda si las produces bien. Hay millones de padres buscando estas canciones HOY.',s:78,sent:82,ai:8}},
+  ],
+  videojuegos:[
+    {id:'dQw4w9WgXcQ',rank:1,title:'Minecraft: The Story of Mojang (Full Documentary)',ch:'2 Player Productions',views:'12M',likes:'280K',comments:'18K',dur:'1:28:00',vir:96,
+     ana:{v:'El documental de Minecraft capturó la esencia de una revolución cultural. Los juegos indies que conquistan el mundo son una narrativa que engancha a gamers y no-gamers por igual.',p:['Narrativa de "de garaje a billonario"','Conexión emocional con la infancia de una generación','Producción cinematográfica para contenido gaming','Acceso exclusivo que ningún otro canal tiene'],e:'La historia de Notch creando el juego más vendido de la historia desde su apartamento',t:'Los documentales sobre el origen de juegos icónicos generan nostalgia masiva. El "cómo se hizo" siempre engancha.',s:96,sent:88,ai:9}},
+    {id:'S4SzzY1WKBM',rank:2,title:'Fortnite - Chapter 5 Season 3 Official Cinematic Trailer',ch:'Fortnite',views:'45M',likes:'1.2M',comments:'95K',dur:'3:15',vir:93,
+     ana:{v:'Los trailers de Fortnite son eventos culturales. Epic Games domina el arte del hype con cinemáticas de calidad hollywoodense que los fans analizan frame por frame buscando pistas.',p:['Calidad cinematográfica de película de acción','Personajes icónicos de cultura pop como crossovers','Hype estratégico semanas antes del lanzamiento','Comunidad activa que amplifica con teorías y reacciones'],e:'El primer reveal del nuevo mapa o mecánica que los streamers ya están especulando',t:'Crea anticipación antes del lanzamiento. Los teasers y countdowns generan más engagement que el contenido en sí.',s:93,sent:86,ai:9}},
+    {id:'9skFnLNlYxQ',rank:3,title:'GTA VI Official Trailer 2',ch:'Rockstar Games',views:'100M+',likes:'4.8M',comments:'420K',dur:'1:31',vir:99,
+     ana:{v:'El trailer de GTA VI fue el evento de gaming más esperado en años. Rockstar construyó 12 años de anticipación antes de lanzarlo, creando el mayor reveal en la historia de los videojuegos.',p:['12 años de anticipación acumulada','Calidad gráfica que redefinió el estándar','La primera protagonista femenina principal en GTA','Ambientación en Vice City (nostalgia profunda)'],e:'El primer fotograma donde aparece Lucía y la audiencia procesa que es la protagonista',t:'El silencio estratégico genera más hype que el ruido constante. A veces NO publicar es la mejor estrategia de marketing.',s:99,sent:82,ai:10}},
+    {id:'QHp1RBzMDTU',rank:4,title:'Among Us - The Story of How It Went Viral',ch:'GAMETOONS',views:'8.5M',likes:'145K',comments:'12K',dur:'8:32',vir:83,
+     ana:{v:'Among Us es el caso de estudio perfecto de viralidad gaming: un juego indie de 2018 que se volvió viral en 2020 gracias a streamers que lo redescubrieron durante la pandemia.',p:['Mecánica social que genera drama y traición','Fácil de entender, difícil de dominar','Streamer-friendly: crea momentos clippeables constantemente','Gratuito o muy barato (barrera de entrada mínima)'],e:'El momento en que alguien es expulsado injustamente y explota: caos perfecto para clips',t:'Diseña tus videos para generar momentos "clippeables". Si los fans pueden cortarlo y compartirlo en 15 segundos, lo harán.',s:83,sent:79,ai:8}},
+    {id:'FkklGqnY4oY',rank:5,title:'Pokémon - Every Generation Ranked & Explained (2024)',ch:'Arekkz Gaming',views:'4.2M',likes:'98K',comments:'22K',dur:'42:18',vir:78,
+     ana:{v:'Los rankings y análisis de franquicias amadas generan debate garantizado. Pokémon tiene 25+ años de fans apasionados que defenderán su generación favorita con fervor religioso.',p:['Tema de nostalgia con audiencia multigeneracional','Formato de ranking que provoca debate en comentarios','Duración larga = más tiempo de watch time','Título que genera curiosidad ("¿dónde quedará la mía?")'],e:'El momento en que tu generación favorita aparece en una posición que consideras injusta',t:'Los rankings y debates sobre temas queridos generan comentarios masivos. Los algoritmos aman el engagement en comentarios.',s:78,sent:74,ai:8}},
+  ],
+  documentales:[
+    {id:'mS0dGTcLqe0',rank:1,title:'Our Planet | One Planet | FULL EPISODE | Netflix',ch:'Netflix',views:'25M',likes:'380K',comments:'18K',dur:'48:00',vir:95,
+     ana:{v:'Our Planet con David Attenborough demostró que el contenido ambiental de alta calidad cinematográfica genera un impact emocional profundo. Las imágenes impresionantes hacen que la gente lo comparta como deber moral.',p:['Fotografía y cinematografía de clase mundial','Narración de David Attenborough (voz icónica)','Mensaje urgente y relevante (cambio climático)','Producción Netflix con presupuesto ilimitado'],e:'Las primeras imágenes aéreas de paisajes vírgenes que nadie ha visto antes',t:'La calidad visual es la puerta de entrada. Aunque no tengas presupuesto de Netflix, una sola toma impresionante puede hacer viral un documental.',s:95,sent:88,ai:9}},
+    {id:'IcXVLiBmFQE',rank:2,title:'The Last Dance | Michael Jordan Documentary (Netflix)',ch:'ESPN',views:'18M',likes:'290K',comments:'31K',dur:'50:00',vir:92,
+     ana:{v:'The Last Dance revivió la leyenda de Jordan para una nueva generación mientras reconfortaba a los que vivieron esa era. Los mejores documentales funcionan en múltiples niveles de audiencia simultáneamente.',p:['Acceso exclusivo que nadie más tenía','Narrativa de grandeza vs. ego que genera debate','Nostalgia profunda para millennials','Revelaciones exclusivas que generaron noticias'],e:'Las confesiones de Jordan sobre ser "el malo" del equipo que nadie esperaba escuchar',t:'El acceso exclusivo es el mayor activo de un documental. ¿A qué persona, lugar o historia puedes acceder tú que otros no pueden?',s:92,sent:85,ai:9}},
+    {id:'8D-SKf_MW0I',rank:3,title:'Free Solo - Official Trailer | National Geographic',ch:'National Geographic',views:'15M',likes:'220K',comments:'14K',dur:'2:34',vir:88,
+     ana:{v:'Free Solo captura lo que nos hace humanos: el deseo de superar los límites absolutos. El riesgo real (Alex Honnold puede morir en cualquier momento) crea una tensión insoportable que es imposible de pausar.',p:['Riesgo real e innegable (nadie actúa aquí)','Antagonista invisible: el miedo que todos sentimos','Cinematografía imposible en lugares imposibles','Psicología profunda del protagonista'],e:'El primer plano de Alex mirando hacia arriba sin cuerdas y sonriendo',t:'El riesgo genuino y las apuestas reales crean tensión narrativa que ningún guión puede igualar. Busca historias donde algo REAL esté en juego.',s:88,sent:82,ai:9}},
+    {id:'nEYFGjbXoGk',rank:4,title:'Seaspiracy - Official Trailer | Netflix',ch:'Netflix',views:'12M',likes:'185K',comments:'28K',dur:'1:44',vir:83,
+     ana:{v:'Seaspiracy fue diseñado para generar controversia y lo logró. Al atacar una industria poderosa con datos reveladores, Netflix creó el debate perfecto que obligaba a la gente a compartirlo para tomar partido.',p:['Revelaciones que contradicen narrativa popular','Posición clara y provocadora','Datos y evidencia que dan credibilidad','Llamada a la acción que motiva el sharing'],e:'La estadística de que la pesca comercial destruye más océano que el plástico',t:'Toma una posición clara aunque sea controversial. El contenido tibio no se comparte; el que hace pensar sí.',s:83,sent:68,ai:8}},
+    {id:'H0-WkpmTPrM',rank:5,title:'Icarus - The Doping Scandal That Changed Sports Forever',ch:'Netflix',views:'9M',likes:'140K',comments:'16K',dur:'1:35:00',vir:78,
+     ana:{v:'Icarus comenzó como un experimento personal y terminó siendo el mayor escándalo de dopaje deportivo de la historia. La mejor narrativa documental siempre tiene un giro que cambia todo lo que creías saber.',p:['Giro narrativo que recontextualiza todo lo anterior','Protagonista ordinario en situación extraordinaria','Relevancia política y deportiva simultánea','Premio Oscar que amplificó su descubrimiento'],e:'El momento en que el científico ruso llama aterrado desde Moscú diciendo que huirá',t:'Los documentales más virales tienen un giro. Estructura tu contenido para que la segunda mitad recontextualice la primera.',s:78,sent:76,ai:8}},
+  ],
+  entretenimiento:[
+    {id:'9bZkp7q19f0',rank:1,title:'PSY - GANGNAM STYLE(강남스타일) M/V',ch:'officialpsy',views:'5.3B',likes:'24M',comments:'4.7M',dur:'4:13',vir:97,
+     ana:{v:'Gangnam Style demostró que el entretenimiento puro puede conquistar el mundo. El humor absurdo, el baile imitable y la energía irresistible de PSY crearon el primer video viral global de la era moderna.',p:['Humor absurdo que trasciende idiomas','Baile icónico fácil de imitar','Energía y carisma que "salen de la pantalla"','Curiosidad: ¿qué está diciendo? ¿qué significa?'],e:'El "baile del caballo" que todos querían mostrar en fiestas',t:'El humor físico y los bailes imitables no necesitan traducción. Si puedes hacer reír sin palabras, tienes audiencia global.',s:97,sent:82,ai:10}},
+    {id:'tntOCGkgt98',rank:2,title:'MrBeast - I Spent 50 Hours Buried Alive',ch:'MrBeast',views:'210M',likes:'9.5M',comments:'580K',dur:'19:29',vir:96,
+     ana:{v:'MrBeast es el maestro del entretenimiento extremo. Sus videos funcionan porque el título es un contrato: "prometo que esto pasará y será increíble". La combinación de riesgo personal y producción épica es inigualable.',p:['Título que es una promesa extrema','Producción de Hollywood con escala imposible','Staking personal: MrBeast mismo en riesgo','Ritmo de edición que no da respiro'],e:'Los primeros 30 segundos donde muestra que es real y el contador de horas comienza',t:'Haz promesas extremas en el título y CÚMPLELAS con creces. La credibilidad se construye entregando más de lo prometido.',s:96,sent:89,ai:10}},
+    {id:'kffacxfA7G4',rank:3,title:'Kai Cenat - 30 Day Subathon Highlights',ch:'Kai Cenat',views:'85M',likes:'4.2M',comments:'320K',dur:'31:00',vir:90,
+     ana:{v:'Los subathons son el formato de entretenimiento en vivo más adictivo de Twitch. Kai Cenat convirtió 30 días de su vida en espectáculo público con momentos imposibles de ignorar.',p:['Formato en vivo con imprevisibilidad total','Comunidad que siente que "están siendo parte de historia"','Momentos de colapso/emoción genuina que se clipean','Duración que genera FOMO masivo'],e:'Los momentos de agotamiento extremo y delirio al día 25 que se volvieron memes',t:'El contenido en vivo crea urgencia que el pregrabado no puede. El "tienes que verlo ahora" es el driver más poderoso.',s:90,sent:84,ai:9}},
+    {id:'YH3c1QZzRK4',rank:4,title:'Will Smith Oscars Slap - Full Video HD',ch:'Multiple channels',views:'50M+',likes:'800K',comments:'1.2M',dur:'0:40',vir:99,
+     ana:{v:'El momento de los Oscars 2022 demostró que el contenido de cultura pop en tiempo real nunca muere. Los eventos impredecibles son imposibles de planificar pero son la mayor fuente de viralidad orgánica.',p:['Evento en vivo imposible de fabricar','Protagonistas de primer nivel (Will Smith, Chris Rock)','Shock + humor + drama + consecuencias = viralidad perfecta','Debate polarizante que obliga a tomar posición'],e:'El silencio de 2 segundos en el teatro antes de que todos procesen lo que pasó',t:'Reacciona al momento: el contenido de reacción a eventos virales activos puede capturar millones en horas si llegas primero.',s:99,sent:58,ai:10}},
+    {id:'XqZsoesa55w',rank:5,title:'Charlie Bit My Finger - Again!',ch:'HDCYT',views:'900M',likes:'1.1M',comments:'320K',dur:'0:55',vir:82,
+     ana:{v:'El video casero más famoso de YouTube. Charlie Bit My Finger demostró que la autenticidad y la ternura genuina pueden vencer a cualquier producción profesional.',p:['Autenticidad total: no hay actuación','Ternura universal (niños siendo niños)','Brevedad perfecta: menos de 1 minuto','Momento único que no puede repetirse'],e:'La sonrisa de Charlie después de morder a su hermano',t:'No subestimes los momentos auténticos y sin filtro. A veces el mejor contenido es el que no planeaste grabar.',s:82,sent:91,ai:8}},
+  ],
+  musica:[
+    {id:'kTyPVilsIz0',rank:1,title:'Luis Fonsi - Despacito ft. Daddy Yankee',ch:'Luis Fonsi',views:'8.4B',likes:'51M',comments:'5.2M',dur:'4:42',vir:98,
+     ana:{v:'La canción más escuchada de la historia en YouTube. Despacito estableció el reggaetón como género global y demostró que el español puede dominar los charts internacionales.',p:['Ritmo tropical irresistible','Colaboración entre leyendas del género','Video auténtico y culturalmente rico','Remix en inglés que expandió el alcance global'],e:'El "Des-pa-cito" del coro que todo el mundo canta sin importar si habla español',t:'Los remixes estratégicos con artistas de otras audiencias multiplican el alcance sin diluir la identidad original.',s:98,sent:92,ai:10}},
+    {id:'JGwWNGJdvx8',rank:2,title:'Ed Sheeran - Shape of You',ch:'Ed Sheeran',views:'6.3B',likes:'30M',comments:'3.8M',dur:'4:24',vir:94,
+     ana:{v:'Ed Sheeran nunca había sonado tan diferente como en Shape of You. El riesgo de salir de su comfort zone resultó en el mayor hit de su carrera, enseñándonos que la evolución artística es necesaria.',p:['Experimentación con géneros diferentes','Beat innovador con elementos exóticos','Relato amoroso simple y universal','Loop del saxofón que se queda en la cabeza'],e:'El riff inicial que hace que todos paren lo que están haciendo',t:'Experimenta con géneros fuera de tu zona. La sorpresa estilística es una herramienta de viralidad poderosa.',s:94,sent:88,ai:9}},
+    {id:'OPf0YbXqDm0',rank:3,title:'Mark Ronson - Uptown Funk ft. Bruno Mars',ch:'Mark Ronson',views:'4.9B',likes:'22M',comments:'3.1M',dur:'4:30',vir:88,
+     ana:{v:'Uptown Funk es el tributo definitivo al funk de los 70s para la generación millennial. La energía de Bruno Mars y la producción impecable de Mark Ronson crearon algo eterno.',p:['Nostalgia modernizada para nueva generación','Performance de clase mundial','Letras confiadas y celebratorias','Video cinematográfico con estética retro'],e:'El bajo del intro que hace levantarse de la silla',t:'Las canciones que hacen sentir BIEN sin razón específica son las más compartidas. La emoción positiva es viral.',s:88,sent:91,ai:9}},
+    {id:'RgKAFK5djSk',rank:4,title:'Wiz Khalifa - See You Again ft. Charlie Puth',ch:'Wiz Khalifa',views:'6.1B',likes:'31M',comments:'3.2M',dur:'3:59',vir:85,
+     ana:{v:'La canción más emotiva de la historia del rap moderno. Su éxito radica en la combinación perfecta de rap y pop melódico unida a una causa emocional genuina.',p:['Combinación perfecta rap + pop','Asociación con homenaje real y emotivo','Producción cinematográfica del video','Contraste dinámico entre verso y coro'],e:'El piano de Charlie Puth que abre la canción y activa la emoción inmediatamente',t:'La música que conecta emocionalmente con momentos de vida (bodas, funerales, graduaciones) tiene longevidad eterna.',s:85,sent:84,ai:9}},
+    {id:'pRpeEdMmmQ0',rank:5,title:'Shakira, Bizarrap - BZRP Music Sessions #53',ch:'Bizarrap',views:'700M',likes:'9.2M',comments:'780K',dur:'2:51',vir:82,
+     ana:{v:'La session de Bizarrap con Shakira fue una bomba cultural. El contexto mediático de su separación de Piqué convirtió cada línea en titular periodístico y combustible viral.',p:['Contexto de drama mediático masivo previo','Letras con dobles sentidos y frases quotables','Formato innovador (sessions de Bizarrap)','Mensaje de empoderamiento que genera identificación'],e:'La frase "las mujeres ya no lloran" que se convirtió en meme y anthem simultáneamente',t:'Cuando el timing cultural es perfecto, un lanzamiento puede capturar toda la conversación pública. Lee el contexto antes de publicar.',s:82,sent:79,ai:9}},
+  ],
+  ia:[
+    {id:'XcQ2T3nS6_U',rank:1,title:'Sora by OpenAI - First Videos Compilation (Official)',ch:'OpenAI',views:'45M',likes:'1.2M',comments:'85K',dur:'6:12',vir:98,
+     ana:{v:'El lanzamiento de Sora redefinió lo que es posible con IA generativa. Los primeros videos demostraron escenas fotorrealistas imposibles de filmar con cámaras reales, generando incredulidad y asombro globales.',p:['Tecnología que redefine lo posible','Escenas fotorrealistas que engañan al ojo humano','Momento histórico: primera IA de video de OpenAI','Debate filosófico sobre el futuro del cine'],e:'Los primeros 10 segundos donde el lana roja en la nieve se ve completamente real',t:'Los momentos "no puedo creer que esto sea IA" son los más virales. Busca demostrar la capacidad más impresionante de la tecnología en los primeros segundos.',s:98,sent:85,ai:10}},
+    {id:'_9LX9HSU4os',rank:2,title:'AI-Generated Music Video: Entire Short Film Made with Midjourney',ch:'AI Film Studio',views:'18M',likes:'380K',comments:'42K',dur:'4:15',vir:93,
+     ana:{v:'El primer cortometraje completamente generado con Midjourney demostró que el futuro del cine indie ya llegó. La coherencia visual y narrativa lograda con IA impactó tanto a cineastas como a tecnólogos.',p:['Primer contenido de su tipo (valor histórico)','Demostración práctica de capacidad IA','Debate sobre futuro de la industria cinematográfica','Calidad que supera expectativas del público general'],e:'El momento en que el espectador se da cuenta de que cada frame es generado por IA, no filmado',t:'Los "primeros" tienen valor inherente. Si eres el primero en mostrar algo con IA, capturas toda la atención de early adopters con audiencias masivas.',s:93,sent:78,ai:9}},
+    {id:'T1-WbEVDM_g',rank:3,title:'This Person Does Not Exist - The AI That Creates Faces',ch:'Two Minute Papers',views:'12M',likes:'245K',comments:'38K',dur:'8:24',vir:88,
+     ana:{v:'El canal Two Minute Papers explica avances de IA de forma accesible. GAN faces representó el momento en que el público general entendió que la IA podía crear rostros perfectamente realistas.',p:['Concepto que genera inmediata incredulidad','Demostración visual directa sin explicación larga','Implicaciones filosóficas y éticas que generan debate','Formato de divulgación científica accesible'],e:'El "refresca la página y aparece una persona nueva que nunca ha existido"',t:'Los conceptos que generan incredulidad inmediata son mágicos para el contenido educativo. "No lo creerás hasta que lo veas" funciona siempre.',s:88,sent:72,ai:8}},
+    {id:'hEgO047GxlQ',rank:4,title:'ChatGPT vs Humans - The Tests That Shocked Everyone',ch:'AI Explained',views:'8.5M',likes:'168K',comments:'25K',dur:'12:38',vir:83,
+     ana:{v:'Los videos de "IA vs Humanos" explotan nuestra inseguridad existencial de la forma más entretenida. La pregunta "¿puede la IA reemplazarme?" es la más buscada en YouTube desde el lanzamiento de ChatGPT.',p:['Pregunta universal que todos se hacen','Formato de competencia con resultado incierto','Resultados sorprendentes que desafían expectativas','Implicaciones personales para cada espectador'],e:'El primer test donde la IA supera al experto humano y todos se quedan en silencio',t:'Los videos que hacen al espectador preguntarse "¿esto me afecta a mí?" tienen el mayor retention rate. Hazlo personal.',s:83,sent:71,ai:8}},
+    {id:'UmX4kyB2wfg',rank:5,title:'Making a Full Song with AI in 24 Hours (From Scratch)',ch:'Corridor Crew',views:'6.2M',likes:'128K',comments:'19K',dur:'21:15',vir:79,
+     ana:{v:'El formato "X with AI in Y hours" captura la curiosidad sobre las capacidades de las herramientas IA. La presión del tiempo y la autenticidad del proceso crean tensión narrativa natural.',p:['Desafío de tiempo que crea tensión','Proceso transparente que educa mientras entretiene','Resultado final: ¿sonará bien o no? (suspenso)','Formato replicable que genera sub-genero de contenido'],e:'El primer preview del sonido final que demuestra si la IA "lo logró"',t:'Los desafíos de tiempo con IA democratizan la tecnología. "Cualquiera puede hacer esto" es el mensaje más poderoso que puedes enviar.',s:79,sent:80,ai:8}},
+  ],
+  deportes:[
+    {id:'6NlDYIGNLNY',rank:1,title:'Messi\'s 4 Goals Against Arsenal - Champions League Classic',ch:'UEFA Champions League',views:'85M',likes:'1.8M',comments:'142K',dur:'10:24',vir:97,
+     ana:{v:'Los highlights de Messi siempre generan millones de views porque representan lo que el ser humano puede lograr en su máxima expresión. La perfección técnica es hipnótica en cualquier idioma.',p:['Perfección técnica que genera asombro universal','El argumento eterno Messi vs Ronaldo en comentarios','Contexto histórico de partido legendary','Edición dinámica que captura cada ángulo del genio'],e:'El primer gol de falta donde el portero de Arsenal no puede ni moverse',t:'Los "mejores momentos" de figuras legendarias tienen longevidad infinita. Cada año una nueva generación los descubre.',s:97,sent:88,ai:9}},
+    {id:'4rnBGqhMBEA',rank:2,title:'Cristiano Ronaldo - Impossible Goals Compilation 2024',ch:'CR7 Official',views:'65M',likes:'2.1M',comments:'185K',dur:'15:32',vir:94,
+     ana:{v:'Las compilaciones de goles imposibles de Cristiano Ronaldo generan debate eterno con Messi. El debate GOAT es el mayor generador de comentarios en la historia del deporte en YouTube.',p:['El debate Messi vs Ronaldo es motor eterno de engagement','Acrobacias físicas que desafían la física','Momentos de gol que se graban en la memoria colectiva','Fanbase leal que defiende con fervor religioso'],e:'El gol de chilena en la Champions League contra Juventus que hizo aplaudir a los fans rivales',t:'El contenido que genera debates polarizados entre dos bandos tiene engagement garantizado. El algoritmo ama los comentarios, aunque sean de pelea.',s:94,sent:78,ai:9}},
+    {id:'2Dc6OKSi1b0',rank:3,title:'Neymar Best Skills & Goals 2024 - Insane Dribbles',ch:'Neymar Jr. Official',views:'42M',likes:'980K',comments:'76K',dur:'12:18',vir:88,
+     ana:{v:'Neymar es el jugador más "clipeable" del fútbol moderno. Sus regates y celebraciones están diseñados casi para el contenido en redes sociales, lo que lo convierte en una máquina de viralidad natural.',p:['Habilidad técnica que parece imposible para humanos comunes','Personalidad extrovertida y expresiva','Momentos de "showboating" que dividen opiniones','Base de fans masiva en Brasil y el mundo'],e:'El primer regate imposible donde el defensa cae al suelo sin entender qué pasó',t:'La personalidad visible y auténtica construye fandoms, no solo admiradores. Muéstrate como eres.',s:88,sent:75,ai:8}},
+    {id:'hOFPVFpKOCE',rank:4,title:'LeBron James - Top 50 Plays of His Career',ch:'NBA',views:'38M',likes:'720K',comments:'58K',dur:'18:45',vir:84,
+     ana:{v:'La NBA es la mejor productora de contenido deportivo del mundo. Sus compilaciones de LeBron capturan la evolución de 20 años de carrera, conectando con fans de múltiples generaciones.',p:['20 años de archivo perfecto de jugadas','La pregunta GOAT activada vs Jordan','Diversidad de momentos: playoffs, dunks, asistencias imposibles','Producción NBA de alta calidad'],e:'La persecución de bloqueo en las finales 2016 cuando todos lo dieron por muerto',t:'Las narrativas de "contra todo pronóstico" son las más poderosas en el deporte. Busca el momento donde el protagonista triunfa después del mayor obstáculo.',s:84,sent:86,ai:8}},
+    {id:'2cVtfJFHLG8',rank:5,title:'Every Lionel Messi World Cup Goal - Qatar 2022',ch:'FIFA Official',views:'30M',likes:'850K',comments:'95K',dur:'9:12',vir:81,
+     ana:{v:'El Mundial 2022 fue el cierre del ciclo que el mundo entero esperaba: Messi ganando la Copa del Mundo. Cada gol en ese torneo tiene el peso de la historia detrás, haciendo cada clip más poderoso que el anterior.',p:['Cierre narrativo épico de 35 años de espera','Conexión emocional que trasciende el fútbol','Calidad FIFA de producción y cámaras','El torneo más visto de la historia humana'],e:'El gol contra Francia en la final que puso el partido 3-2 antes de los penales',t:'Los eventos únicos e irrepetibles tienen valor infinito. Estar presente y documentar "el momento" es la oportunidad que ningún creador debería perder.',s:81,sent:92,ai:8}},
+  ],
+  tecnologia:[
+    {id:'ZB8RZ9WFNXE',rank:1,title:'Every Apple Product EVER in 9 Minutes',ch:'Apple',views:'35M',likes:'680K',comments:'42K',dur:'9:01',vir:96,
+     ana:{v:'Apple tiene la mayor base de fanáticos en tecnología. Su video de recorrido histórico activa la nostalgia de los fans mientras genera curiosidad en los nuevos, siendo content evergreen perfecta.',p:['Nostalgia tecnológica que conecta generaciones','Marca con base de fans casi religiosa','Formato de recorrido que mantiene enganchado','Cada producto activa recuerdos personales del espectador'],e:'El primer iPhone apareciendo y el espectador recordando dónde estaba cuando lo vio por primera vez',t:'El contenido histórico de marcas icónicas conecta con la identidad personal de sus fans. La nostalgia tecnológica es un género que nunca muere.',s:96,sent:85,ai:9}},
+    {id:'6mAqB0-RDRM',rank:2,title:'The Mind-Blowing Scale of AI - What ChatGPT Really Is',ch:'Fireship',views:'22M',likes:'485K',comments:'31K',dur:'7:43',vir:93,
+     ana:{v:'Fireship domina el contenido técnico ultra-condensado. Sus videos explican en 7 minutos lo que otros tardan 1 hora, y cada segundo está tan cargado de información que generas nota mental de revisitar.',p:['Densidad de información que hace sentir el tiempo bien invertido','Edición rapidísima que no da espiro al aburrimiento','Humor técnico que humaniza conceptos complejos','Thumbnail con fórmula probada que genera clicks'],e:'El primer minuto donde establece la escala del problema en formas que nunca habías pensado',t:'La densidad de información de alta calidad genera lealtad. Si cada segundo aporta valor, los viewers vuelven y comparten.',s:93,sent:87,ai:9}},
+    {id:'Y2VF8tmLFHw',rank:3,title:'Tesla Full Self-Driving - 1000 Miles Without Touching Wheel',ch:'Whole Mars Catalog',views:'15M',likes:'295K',comments:'48K',dur:'28:12',vir:87,
+     ana:{v:'Los tests de Tesla FSD generan debate tecnológico y filosófico simultáneamente. ¿El auto manejó solo? ¿Es seguro? ¿El futuro llegó? Estas preguntas sin respuesta clara generan comentarios masivos.',p:['Demostración práctica de tecnología del futuro','Riesgo real que mantiene la tensión al máximo','Debate sobre seguridad que polariza comentarios','Duración larga = audiencia muy engaged que termina el video'],e:'El momento donde el auto enfrenta un escenario complejo de cruce y lo resuelve solo',t:'Los tests de tecnología con outcome incierto son perfectos para el formato largo. La gente completa el video para ver si "funciona".',s:87,sent:72,ai:8}},
+    {id:'7GmDukj-Kvc',rank:4,title:'How Does a CPU Actually Work?',ch:'Branch Education',views:'18M',likes:'390K',comments:'22K',dur:'26:16',vir:83,
+     ana:{v:'Branch Education tiene el mejor contenido de visualización tecnológica de YouTube. Hace visible lo invisible (electrones en un chip) creando el "ahora sí entiendo" que todos buscamos.',p:['Visualización de conceptos previamente incomprensibles','Nivel de detalle que recompensa múltiples visionados','Satisfacción del "click" mental cuando entiendes','Producción de animaciones que no existe en ningún texto'],e:'La visualización de electrones moviéndose realmente a través del transistor',t:'Haz visible lo invisible. Si puedes mostrar algo que la gente nunca ha podido ver, tienes contenido único irrepetible.',s:83,sent:90,ai:8}},
+    {id:'nKW8Ndu7Mjw',rank:5,title:'Mark Zuckerberg vs Elon Musk - Full Analysis',ch:'MKBHD',views:'12M',likes:'225K',comments:'62K',dur:'18:33',vir:79,
+     ana:{v:'MKBHD es el creador de tecnología más respetado de YouTube. Su análisis de las dos figuras más poderosas de tech en 2023 capturó toda la atención de la industria y audiencias generales simultáneamente.',p:['Dos figuras polarizantes que dividen opiniones','Análisis equilibrado que da credibilidad','Momento cultural único e irrepetible','Creador con máxima credibilidad en tech YouTube'],e:'El contraste directo entre los valores y estilos de liderazgo de ambos que revela mucho sobre su éxito',t:'Asocia tu contenido a los debates más grandes de tu industria cuando tienes algo único que aportar. El timing es todo.',s:79,sent:68,ai:8}},
+  ],
+  comedia:[
+    {id:'9bZkp7q19f0',rank:1,title:'PSY - GANGNAM STYLE',ch:'officialpsy',views:'5.3B',likes:'24M',comments:'4.7M',dur:'4:13',vir:98,
+     ana:{v:'Gangnam Style es el pico de la comedia pop: absurdo, irresistible y universal. Demostró que la risa no necesita traducción y que el baile ridículo es el mayor igualador cultural de la humanidad.',p:['Humor absurdo sin barreras de idioma','Baile ridículo que inspira imitación masiva','Autorreferencia y burla de la cultura propia','Energía desbordante que es imposible no sentir'],e:'La cara seria de PSY mientras hace el "baile del caballo"',t:'El humor que se ríe de uno mismo es el más desarmante y compartible. La autenticidad ridícula supera al humor calculado.',s:98,sent:85,ai:10}},
+    {id:'_OBlgSz8sSM',rank:2,title:'Try Not to Laugh Challenge - Best Fails 2024',ch:'FailArmy',views:'180M',likes:'2.8M',comments:'185K',dur:'12:18',vir:95,
+     ana:{v:'FailArmy inventó el formato de compilación de fails que se ha convertido en uno de los más vistos de YouTube. La serotonina colectiva de reír de los fails ajenos sin maldad es universal.',p:['Formato de compilación que promete variedad constante','Humor sin víctimas: nadie sale lastimado (seriamente)','Diversidad cultural que llega a toda audiencia','Duración y formato perfectos para sesiones largas'],e:'El fail que viene completamente de la nada y para el que nadie estaba preparado',t:'Las compilaciones permiten que el algoritmo distribuya ampliamente. Si algún clip hace reír, la gente ve el siguiente, y el siguiente...',s:95,sent:88,ai:9}},
+    {id:'bW7Op86ox9g',rank:3,title:'Ryan Reynolds - Free Guy Bloopers & Behind the Scenes',ch:'20th Century Studios',views:'25M',likes:'580K',comments:'38K',dur:'8:45',vir:88,
+     ana:{v:'Ryan Reynolds es el maestro del contenido de marketing que no parece marketing. Sus bloopers son tan entretenidos como las películas mismas, y su humor self-aware tiene legión de fans.',p:['Humor auto-ironico que humaniza la celebridad','Contenido de "detrás de cámaras" siempre demandado','La personalidad de Reynolds es un producto en sí mismo','Fans que comparten como acto de amor al actor'],e:'El blooper donde Reynolds improvisa un comentario tan gracioso que para la filmación entera',t:'Los bloopers y el behind-the-scenes generan conexión humana que el contenido final no puede. Muestra el proceso imperfecto.',s:88,sent:93,ai:8}},
+    {id:'XEYdTyRrpQU',rank:4,title:'Most Viewed Memes of 2024 - Complete Compilation',ch:'YouTube Meme Archive',views:'40M',likes:'1.1M',comments:'95K',dur:'22:00',vir:85,
+     ana:{v:'Las compilaciones de memes anuales funcionan porque capturan la memoria colectiva de una generación de internet. Son el "anuario escolar" de cada año, con todos los momentos culturales que compartimos.',p:['Nostalgia inmediata (memes de hace apenas meses)','Reconocimiento social: "yo también lo vi"','Formato de compilación que funciona como lista','Valor histórico/cultural de documentar la era meme'],e:'El primer meme que aparece y que todos ya han visto miles de veces',t:'El reconocimiento compartido ("yo sé que tú también viste esto") crea el mayor sentido de comunidad posible.',s:85,sent:84,ai:8}},
+    {id:'MtN1YnoL46Q',rank:5,title:'Vine to TikTok: The Evolution of 15 Second Comedy',ch:'Drew Gooden',views:'15M',likes:'320K',comments:'42K',dur:'32:14',vir:80,
+     ana:{v:'Los ensayos visuales sobre la evolución de la comedia online tienen audiencia cult. Drew Gooden analiza con humor y precisión cómo cambió el humor de una generación, creando nostalgia y comprensión profunda.',p:['Análisis cultural con profundidad académica y humor','Nostalgia de plataformas extintas que todos amaban','El humor metacomentando el humor es siempre eficaz','Duración larga que indica audiencia muy engaged'],e:'El clip de Vine de 6 segundos que lo explica todo sobre por qué esa plataforma fue irrepetible',t:'El contenido metacomentario (hablar sobre el contenido) construye las audiencias más cultas y leales de YouTube.',s:80,sent:86,ai:8}},
+  ],
+};
+
+// ── APP ───────────────────────────────────────────────────────────────
+let current = 'mundial';
+
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Particles
+(function(){
+  const c=document.getElementById('pts'), cols=['#7c3aed','#06b6d4','#f72585','#ffd700','#10b981'];
+  for(let i=0;i<28;i++){
+    const p=document.createElement('div'); p.className='pt';
+    const sz=Math.random()*4+2;
+    p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;background:${cols[i%5]};animation-duration:${Math.random()*15+10}s;animation-delay:${Math.random()*10}s;box-shadow:0 0 ${sz*3}px currentColor`;
+    c.appendChild(p);
+  }
+})();
+
+// Build sidebar
+(function(){
+  const nav=document.getElementById('snav');
+  nav.innerHTML='<div class="nsec">Categorías</div>';
+  CATS.forEach(cat=>{
+    const d=document.createElement('div');
+    d.className='ni'+(cat.key===current?' active':'');
+    d.dataset.key=cat.key;
+    d.style.setProperty('--ic',cat.color);
+    d.innerHTML=`<span class="ni-ico">${cat.icon}</span><span class="ni-lbl">${cat.name}</span><span class="ni-cnt">TOP 15</span>`;
+    d.addEventListener('click',()=>{
+      selectCat(cat.key);
+      if(window.innerWidth<=768) document.getElementById('sidebar').classList.remove('open');
+    });
+    nav.appendChild(d);
+  });
+})();
+
+function selectCat(key){
+  current=key;
+  document.querySelectorAll('.ni').forEach(el=>el.classList.toggle('active',el.dataset.key===key));
+  renderCat(key);
+}
+
+function renderCat(key){
+  const cat=CATS.find(c=>c.key===key);
+  const vids=VIDEOS[key]||[];
+  // Hero
+  document.getElementById('hico').textContent=cat.icon;
+  document.getElementById('htitle').textContent=cat.name;
+  document.getElementById('hdesc').textContent=cat.desc;
+  document.getElementById('tpico').textContent=cat.icon;
+  document.getElementById('tpname').textContent=cat.name;
+  document.getElementById('hglow').style.background=cat.color;
+  // Grid
+  const grid=document.getElementById('grid');
+  grid.innerHTML='';
+  vids.forEach(v=>{
+    const rk=v.rank===1?'r1':v.rank===2?'r2':v.rank===3?'r3':'ro';
+    const bar=v.vir||75;
+    const d=document.createElement('div');
+    d.className='vc'; d.dataset.rank=v.rank;
+    d.innerHTML=`
+      <div class="ct">
+        <img src="https://i.ytimg.com/vi/${v.id}/hqdefault.jpg" alt="${esc(v.title)}" loading="lazy"/>
+        <div class="cr ${rk}">#${v.rank}</div>
+        <div class="cdur">${esc(v.dur)}</div>
+        <div class="cplay"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+      </div>
+      <div class="cb">
+        <div class="ctitle">${esc(v.title)}</div>
+        <div class="cch">${esc(v.ch)}</div>
+        <div class="cs">
+          <div class="si"><span class="si-ico">👁️</span><span class="si-val">${esc(v.views)}</span><span class="si-lbl">Vistas</span></div>
+          <div class="si"><span class="si-ico">👍</span><span class="si-val">${esc(v.likes)}</span><span class="si-lbl">Likes</span></div>
+          <div class="si"><span class="si-ico">💬</span><span class="si-val">${esc(v.comments)}</span><span class="si-lbl">Coments.</span></div>
+        </div>
+        <div class="vbw">
+          <span class="vbl">Viralidad</span>
+          <div class="vb"><div class="vbf" style="width:${bar}%;background:linear-gradient(90deg,${cat.color},#f72585)"></div></div>
+          <span class="vp" style="color:${cat.color}">${bar}%</span>
+        </div>
+      </div>`;
+    d.addEventListener('click',()=>openModal(v,cat));
+    grid.appendChild(d);
+  });
+}
+
+function openModal(v,cat){
+  const c=cat.color;
+  document.getElementById('mplayer').src=`https://www.youtube.com/embed/${v.id}?autoplay=1`;
+  document.getElementById('mrk').textContent=`#${v.rank}`;
+  document.getElementById('mrk').style.background=v.rank===1?'var(--gold)':v.rank===2?'#c0c0c0':v.rank===3?'#cd7f32':c;
+  document.getElementById('mrk').style.color=v.rank<=3?'#000':'#fff';
+  document.getElementById('mt').textContent=v.title;
+  document.getElementById('mch').textContent=v.ch;
+  document.getElementById('mch').href=`https://www.youtube.com/results?search_query=${encodeURIComponent(v.ch)}`;
+  document.getElementById('mstats').innerHTML=`
+    <div class="msi"><div class="msi-ico">👁️</div><div class="msi-v">${esc(v.views)}</div><div class="msi-l">Visualizaciones</div></div>
+    <div class="msi"><div class="msi-ico">👍</div><div class="msi-v">${esc(v.likes)}</div><div class="msi-l">Me gusta</div></div>
+    <div class="msi"><div class="msi-ico">💬</div><div class="msi-v">${esc(v.comments)}</div><div class="msi-l">Comentarios</div></div>`;
+  document.getElementById('myl').href=`https://www.youtube.com/watch?v=${v.id}`;
+  const a=v.ana||{};
+  document.getElementById('awv').textContent=a.v||'';
+  document.getElementById('aep').textContent=a.e||'';
+  document.getElementById('atip').textContent=a.t||'';
+  const pl=document.getElementById('apt'); pl.innerHTML='';
+  (a.p||[]).forEach(pt=>{ const li=document.createElement('li'); li.textContent=pt; pl.appendChild(li); });
+  document.getElementById('asm').innerHTML=`
+    <div class="smi"><div class="smv" style="color:${c}">${a.s||75}%</div><div class="sml">Viralidad</div></div>
+    <div class="smi"><div class="smv" style="color:var(--green)">${a.sent||75}%</div><div class="sml">Sentimiento</div></div>
+    <div class="smi"><div class="smv" style="color:var(--gold)">${a.ai||8}/10</div><div class="sml">Score IA</div></div>`;
+  document.getElementById('mo').classList.remove('hidden');
+  document.body.style.overflow='hidden';
+}
+
+function closeModal(){
+  document.getElementById('mplayer').src='';
+  document.getElementById('mo').classList.add('hidden');
+  document.body.style.overflow='';
+}
+
+document.getElementById('mclose').addEventListener('click',closeModal);
+document.getElementById('mo').addEventListener('click',e=>{ if(e.target===document.getElementById('mo')) closeModal(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeModal(); });
+document.getElementById('mb').addEventListener('click',()=>document.getElementById('sidebar').classList.toggle('open'));
+document.getElementById('st').addEventListener('click',()=>document.getElementById('sidebar').classList.remove('open'));
+
+document.querySelector('.btnr').addEventListener('click',()=>{
+  alert('✨ En la app real, esto actualiza los datos de YouTube en tiempo real usando IA.\n\nEsta es la versión demo con datos de muestra.');
+});
+
+// Initial render
+renderCat('mundial');
+</script>
+</body>
+</html>

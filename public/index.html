@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🎮 YouTube Top Videos — ViralTops</title>
+  <link rel="stylesheet" href="/css/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+  <!-- Particles Background -->
+  <div id="particles"></div>
+
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-header">
+      <div class="logo">
+        <span class="logo-icon">🎮</span>
+        <div>
+          <div class="logo-title">ViralTops</div>
+          <div class="logo-sub">YouTube Rankings</div>
+        </div>
+      </div>
+      <button class="sidebar-toggle" id="sidebarToggle" aria-label="Cerrar menú">✕</button>
+    </div>
+
+    <div class="refresh-badge" id="refreshBadge">
+      <span class="refresh-icon">⏰</span>
+      <div>
+        <div class="refresh-label">Próxima actualización</div>
+        <div class="refresh-date" id="nextRefreshDate">Cargando...</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav" id="sidebarNav">
+      <!-- Populated by JS -->
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="sidebar-footer-note">Se actualiza cada lunes automáticamente</div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <div class="main-wrapper">
+
+    <!-- Top Bar -->
+    <header class="topbar">
+      <button class="menu-btn" id="menuBtn" aria-label="Abrir menú">☰</button>
+      <div class="topbar-title" id="topbarTitle">
+        <span id="topbarIcon">🇪🇸</span>
+        <span id="topbarName">Top Español</span>
+      </div>
+      <div class="topbar-right">
+        <div class="week-badge" id="weekBadge">
+          📅 <span id="weekKey">Semana actual</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Hero Banner -->
+    <div class="hero" id="hero">
+      <div class="hero-content">
+        <div class="hero-icon" id="heroIcon">🇪🇸</div>
+        <h1 class="hero-title" id="heroTitle">Top Español</h1>
+        <p class="hero-desc" id="heroDesc">Los 20 videos más virales en español de las últimas 2 semanas</p>
+        <div class="hero-stats" id="heroStats"></div>
+      </div>
+      <div class="hero-bg-glow" id="heroBgGlow"></div>
+    </div>
+
+    <!-- Content Area -->
+    <main class="content" id="mainContent">
+
+      <!-- Loading State -->
+      <div class="loading-state" id="loadingState">
+        <div class="loading-orb"></div>
+        <div class="loading-text">Cargando tops...</div>
+        <div class="loading-sub">El agente IA está analizando miles de videos</div>
+      </div>
+
+      <!-- Error State -->
+      <div class="error-state hidden" id="errorState">
+        <div class="error-icon">⚠️</div>
+        <div class="error-text">Error al cargar datos</div>
+        <button class="btn-retry" id="btnRetry">Reintentar</button>
+      </div>
+
+      <!-- Videos Grid -->
+      <div class="videos-grid hidden" id="videosGrid">
+        <!-- Cards populated by JS -->
+      </div>
+
+    </main>
+  </div>
+
+  <!-- Video Modal -->
+  <div class="modal-overlay hidden" id="modalOverlay">
+    <div class="modal" id="modal">
+      <button class="modal-close" id="modalClose">✕</button>
+
+      <div class="modal-rank" id="modalRank">#1</div>
+
+      <div class="modal-player-wrap">
+        <iframe id="modalPlayer" src="" frameborder="0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowfullscreen></iframe>
+      </div>
+
+      <div class="modal-body">
+        <div class="modal-left">
+          <h2 class="modal-title" id="modalTitle"></h2>
+          <a class="modal-channel" id="modalChannel" href="#" target="_blank"></a>
+          <div class="modal-stats" id="modalStats"></div>
+          <a class="modal-yt-link" id="modalYtLink" href="#" target="_blank">
+            ▶ Ver en YouTube
+          </a>
+        </div>
+
+        <div class="modal-right">
+          <div class="analysis-card">
+            <div class="analysis-title">🔥 ¿Por qué es viral?</div>
+            <p class="analysis-text" id="analysisWhyViral"></p>
+          </div>
+          <div class="analysis-card">
+            <div class="analysis-title">📌 Patrones de Viralidad</div>
+            <ul class="patterns-list" id="analysisPatterns"></ul>
+          </div>
+          <div class="analysis-card accent">
+            <div class="analysis-title">⚡ Enganche Principal</div>
+            <p class="analysis-text" id="analysisHook"></p>
+          </div>
+          <div class="analysis-card green">
+            <div class="analysis-title">💡 Consejo para Creadores</div>
+            <p class="analysis-text" id="analysisTip"></p>
+          </div>
+          <div class="analysis-card" id="autoCard">
+            <div class="analysis-title">🤖 Cómo Automatizarlo</div>
+            <div id="autoMeta" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px"></div>
+            <ol class="auto-steps" id="autoSteps"></ol>
+            <div style="margin-top:10px">
+              <div class="analysis-title" style="font-size:11px;margin-bottom:6px">🔧 Herramientas</div>
+              <div id="autoTools" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+            </div>
+            <div style="margin-top:10px">
+              <div class="analysis-title" style="font-size:11px;margin-bottom:4px">💡 Consejo Clave</div>
+              <p class="analysis-text" id="autoTip"></p>
+            </div>
+          </div>
+          <div class="score-meters" id="scoreMeters"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
