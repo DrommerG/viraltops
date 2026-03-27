@@ -359,7 +359,7 @@
     setNextRefreshLabel();
 
     try {
-      const res = await fetch('/data/cache.json');
+      const res = await fetch('./data/cache.json');
       if (!res.ok) throw new Error('No data');
       const data = await res.json();
 
