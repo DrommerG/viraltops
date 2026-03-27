@@ -1,18 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════
    ViralTops — Frontend Application
-   Lee datos desde /data/cache.json (archivo estático)
 ═══════════════════════════════════════════════════════════════ */
 
 (function () {
   'use strict';
 
-  // ─── State ──────────────────────────────────────────────────
   let currentCategory = 'espanol';
   let categories = [];
   let currentVideos = [];
-  let allData = null;
+  let pollInterval = null;
 
-  // ─── DOM Refs ──────────────────────────────────────────────
   const $ = id => document.getElementById(id);
   const sidebar        = $('sidebar');
   const sidebarNav     = $('sidebarNav');
@@ -27,6 +24,7 @@
   const nextRefreshDate = $('nextRefreshDate');
   const weekKey        = $('weekKey');
   const btnRetry       = $('btnRetry');
+  const btnRefresh     = $('btnRefresh');
 
   // ─── Particles ──────────────────────────────────────────────
   function createParticles() {
@@ -37,13 +35,11 @@
       p.className = 'particle';
       const size = Math.random() * 4 + 2;
       p.style.cssText = `
-        width: ${size}px;
-        height: ${size}px;
-        left: ${Math.random() * 100}%;
-        background: ${colors[Math.floor(Math.random() * colors.length)]};
-        animation-duration: ${Math.random() * 15 + 10}s;
-        animation-delay: ${Math.random() * 10}s;
-        box-shadow: 0 0 ${size * 3}px currentColor;
+        width:${size}px;height:${size}px;left:${Math.random()*100}%;
+        background:${colors[Math.floor(Math.random()*colors.length)]};
+        animation-duration:${Math.random()*15+10}s;
+        animation-delay:${Math.random()*10}s;
+        box-shadow:0 0 ${size*3}px currentColor;
       `;
       container.appendChild(p);
     }
@@ -72,30 +68,23 @@
 
   function selectCategory(key) {
     currentCategory = key;
-    document.querySelectorAll('.nav-item').forEach(el => {
-      el.classList.toggle('active', el.dataset.key === key);
-    });
-    showCategory(key);
+    document.querySelectorAll('.nav-item').forEach(el =>
+      el.classList.toggle('active', el.dataset.key === key)
+    );
+    loadCategory(key);
   }
 
-  function closeSidebar() {
-    sidebar.classList.remove('open');
-  }
+  function closeSidebar() { sidebar.classList.remove('open'); }
+  function toggleSidebar() { sidebar.classList.toggle('open'); }
 
-  function toggleSidebar() {
-    sidebar.classList.toggle('open');
-  }
-
-  // ─── Hero Update ───────────────────────────────────────────
+  // ─── Hero ──────────────────────────────────────────────────
   function updateHero(cat) {
     $('heroIcon').textContent = cat.icon;
     $('heroTitle').textContent = cat.name;
     $('heroDesc').textContent = cat.description;
     $('topbarIcon').textContent = cat.icon;
     $('topbarName').textContent = cat.name;
-
-    const glow = $('heroBgGlow');
-    glow.style.background = cat.color;
+    $('heroBgGlow').style.background = cat.color;
     document.body.className = `theme-${cat.key}`;
 
     if (currentVideos.length > 0) {
@@ -109,31 +98,63 @@
     }
   }
 
-  // ─── Show Category (reads from local allData) ──────────────
-  function showCategory(key) {
+  // ─── Load Category ─────────────────────────────────────────
+  async function loadCategory(key) {
     const cat = categories.find(c => c.key === key);
     if (cat) updateHero(cat);
-
     showLoading();
 
-    const catData = allData?.categories?.[key];
-    if (!catData || !catData.videos || catData.videos.length === 0) {
-      showError();
-      return;
-    }
+    try {
+      const res = await fetch(`/api/tops/${key}`);
+      const data = await res.json();
 
-    currentVideos = catData.videos;
-    renderVideos(catData.videos, cat);
-    if (allData.weekKey) weekKey.textContent = `Semana del ${allData.weekKey}`;
+      if (data.status === 'refreshing' || data.status === 'loading') {
+        showPipelineRunning();
+        startPoll(key);
+        return;
+      }
+
+      if (data.status === 'ok' && data.videos?.length > 0) {
+        currentVideos = data.videos;
+        renderVideos(data.videos, cat);
+        updateWeekInfo(data.weekKey, data.nextRefresh);
+        stopPoll();
+      } else {
+        showError();
+        stopPoll();
+      }
+    } catch {
+      showError();
+    }
+  }
+
+  function startPoll(key) {
+    if (pollInterval) return;
+    pollInterval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/tops/${key}`);
+        const data = await res.json();
+        if (data.status === 'ok' && data.videos?.length > 0) {
+          currentVideos = data.videos;
+          const cat = categories.find(c => c.key === key);
+          renderVideos(data.videos, cat);
+          updateWeekInfo(data.weekKey, data.nextRefresh);
+          stopPoll();
+        }
+      } catch { /* keep polling */ }
+    }, 8000);
+  }
+
+  function stopPoll() {
+    clearInterval(pollInterval);
+    pollInterval = null;
+    hidePipelineStatus();
   }
 
   // ─── Render Videos ─────────────────────────────────────────
   function renderVideos(videos, cat) {
     videosGrid.innerHTML = '';
-    videos.forEach(video => {
-      const card = createVideoCard(video, cat);
-      videosGrid.appendChild(card);
-    });
+    videos.forEach(video => videosGrid.appendChild(createVideoCard(video, cat)));
     showVideos();
     if (cat) updateHero(cat);
   }
@@ -141,13 +162,7 @@
   function createVideoCard(video, cat) {
     const div = document.createElement('div');
     div.className = 'video-card';
-    div.dataset.rank = video.rank;
-
-    const rankClass = video.rank === 1 ? 'rank-1'
-                    : video.rank === 2 ? 'rank-2'
-                    : video.rank === 3 ? 'rank-3'
-                    : 'rank-other';
-
+    const rankClass = video.rank <= 3 ? `rank-${video.rank}` : 'rank-other';
     const viralPct = video.scores?.virality || 0;
     const color = cat?.color || '#7c3aed';
 
@@ -157,40 +172,23 @@
              onerror="this.src='https://i.ytimg.com/vi/${video.id}/hqdefault.jpg'" />
         <div class="card-rank ${rankClass}">#${video.rank}</div>
         <div class="card-duration">${escHtml(video.duration || '')}</div>
-        <div class="card-play-overlay">
-          <svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
-        </div>
+        <div class="card-play-overlay"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
       </div>
       <div class="card-body">
         <div class="card-title">${escHtml(video.title)}</div>
         <div class="card-channel">${escHtml(video.channelTitle)}</div>
         <div class="card-stats">
-          <div class="stat-item">
-            <span class="stat-icon">👁️</span>
-            <span class="stat-value">${video.stats?.viewsFormatted || '0'}</span>
-            <span class="stat-label">Vistas</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-icon">👍</span>
-            <span class="stat-value">${video.stats?.likesFormatted || '0'}</span>
-            <span class="stat-label">Likes</span>
-          </div>
-          <div class="stat-item">
-            <span class="stat-icon">💬</span>
-            <span class="stat-value">${video.stats?.commentsFormatted || '0'}</span>
-            <span class="stat-label">Comentarios</span>
-          </div>
+          <div class="stat-item"><span class="stat-icon">👁️</span><span class="stat-value">${video.stats?.viewsFormatted||'0'}</span><span class="stat-label">Vistas</span></div>
+          <div class="stat-item"><span class="stat-icon">👍</span><span class="stat-value">${video.stats?.likesFormatted||'0'}</span><span class="stat-label">Likes</span></div>
+          <div class="stat-item"><span class="stat-icon">💬</span><span class="stat-value">${video.stats?.commentsFormatted||'0'}</span><span class="stat-label">Comentarios</span></div>
         </div>
         <div class="virality-bar-wrap">
           <span class="virality-label">Viralidad</span>
-          <div class="virality-bar">
-            <div class="virality-fill" style="width: ${viralPct}%; background: linear-gradient(90deg, ${color}, #f72585)"></div>
-          </div>
-          <span class="virality-pct" style="color: ${color}">${viralPct}%</span>
+          <div class="virality-bar"><div class="virality-fill" style="width:${viralPct}%;background:linear-gradient(90deg,${color},#f72585)"></div></div>
+          <span class="virality-pct" style="color:${color}">${viralPct}%</span>
         </div>
       </div>
     `;
-
     div.addEventListener('click', () => openModal(video, cat));
     return div;
   }
@@ -198,87 +196,58 @@
   // ─── Modal ─────────────────────────────────────────────────
   function openModal(video, cat) {
     const color = cat?.color || '#7c3aed';
-
     modalPlayer.src = video.urls?.embed || '';
 
     $('modalRank').textContent = `#${video.rank}`;
-    $('modalRank').style.background = video.rank === 1 ? 'var(--color-gold)'
-                                    : video.rank === 2 ? '#c0c0c0'
-                                    : video.rank === 3 ? '#cd7f32'
-                                    : color;
-    $('modalRank').style.color = video.rank <= 3 ? '#000' : '#fff';
-
+    $('modalRank').style.background = video.rank===1?'var(--color-gold)':video.rank===2?'#c0c0c0':video.rank===3?'#cd7f32':color;
+    $('modalRank').style.color = video.rank<=3?'#000':'#fff';
     $('modalTitle').textContent = video.title;
     $('modalChannel').textContent = video.channelTitle;
-    $('modalChannel').href = video.urls?.channel || '#';
+    $('modalChannel').href = video.urls?.channel||'#';
 
     $('modalStats').innerHTML = `
-      <div class="modal-stat">
-        <div class="modal-stat-icon">👁️</div>
-        <div class="modal-stat-value">${video.stats?.viewsFormatted || '0'}</div>
-        <div class="modal-stat-label">Visualizaciones</div>
-      </div>
-      <div class="modal-stat">
-        <div class="modal-stat-icon">👍</div>
-        <div class="modal-stat-value">${video.stats?.likesFormatted || '0'}</div>
-        <div class="modal-stat-label">Me gusta</div>
-      </div>
-      <div class="modal-stat">
-        <div class="modal-stat-icon">💬</div>
-        <div class="modal-stat-value">${video.stats?.commentsFormatted || '0'}</div>
-        <div class="modal-stat-label">Comentarios</div>
-      </div>
+      <div class="modal-stat"><div class="modal-stat-icon">👁️</div><div class="modal-stat-value">${video.stats?.viewsFormatted||'0'}</div><div class="modal-stat-label">Visualizaciones</div></div>
+      <div class="modal-stat"><div class="modal-stat-icon">👍</div><div class="modal-stat-value">${video.stats?.likesFormatted||'0'}</div><div class="modal-stat-label">Me gusta</div></div>
+      <div class="modal-stat"><div class="modal-stat-icon">💬</div><div class="modal-stat-value">${video.stats?.commentsFormatted||'0'}</div><div class="modal-stat-label">Comentarios</div></div>
     `;
+    $('modalYtLink').href = video.urls?.watch||'#';
 
-    $('modalYtLink').href = video.urls?.watch || '#';
+    const a = video.analysis||{};
+    $('analysisWhyViral').textContent = a.porqueEsViral||'Sin análisis disponible.';
+    $('analysisHook').textContent = a.enganchePrincipal||'Alto engagement con la audiencia.';
+    $('analysisTip').textContent = a.consejoCreadores||'Estudia los patrones de este video.';
 
-    const a = video.analysis || {};
-    $('analysisWhyViral').textContent = a.porqueEsViral || 'Sin análisis disponible.';
-    $('analysisHook').textContent = a.enganchePrincipal || 'Alto engagement con la audiencia.';
-    $('analysisTip').textContent = a.consejoCreadores || 'Estudia los patrones de este video y aplícalos en tus propios contenidos.';
-
-    const patternsList = $('analysisPatterns');
-    patternsList.innerHTML = '';
-    (a.patrones || []).forEach(p => {
+    $('analysisPatterns').innerHTML = '';
+    (a.patrones||[]).forEach(p => {
       const li = document.createElement('li');
       li.textContent = p;
-      patternsList.appendChild(li);
+      $('analysisPatterns').appendChild(li);
     });
 
-    const s = video.scores || {};
+    const s = video.scores||{};
     $('scoreMeters').innerHTML = `
-      <div class="score-meter">
-        <div class="score-meter-val" style="color: ${color}">${s.virality || 0}%</div>
-        <div class="score-meter-label">Viralidad</div>
-      </div>
-      <div class="score-meter">
-        <div class="score-meter-val" style="color: var(--color-green)">${s.sentiment || 70}%</div>
-        <div class="score-meter-label">Sentimiento</div>
-      </div>
-      <div class="score-meter">
-        <div class="score-meter-val" style="color: var(--color-gold)">${s.aiScore || 7}/10</div>
-        <div class="score-meter-label">Score IA</div>
-      </div>
+      <div class="score-meter"><div class="score-meter-val" style="color:${color}">${s.virality||0}%</div><div class="score-meter-label">Viralidad</div></div>
+      <div class="score-meter"><div class="score-meter-val" style="color:var(--color-green)">${s.sentiment||70}%</div><div class="score-meter-label">Sentimiento</div></div>
+      <div class="score-meter"><div class="score-meter-val" style="color:var(--color-gold)">${s.aiScore||7}/10</div><div class="score-meter-label">Score IA</div></div>
     `;
 
-    const auto = video.automation || {};
+    const auto = video.automation||{};
     $('autoMeta').innerHTML = `
-      <span class="auto-badge" style="color:#ffa502;border-color:rgba(255,165,2,.4);background:rgba(255,165,2,.1)">${escHtml(auto.tipoContenido || 'Video')}</span>
-      <span class="auto-badge" style="color:var(--color-green);border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.1)">&#x23F1; ${escHtml(auto.tiempoEstimado || 'Variable')}</span>
-      <span class="auto-badge" style="color:var(--color-cyan);border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.1)">&#x1F4B0; ${escHtml(auto.costoEstimado || 'Variable')}</span>
-      <span class="auto-badge" style="color:var(--color-pink);border-color:rgba(247,37,133,.4);background:rgba(247,37,133,.1)">${escHtml(auto.nivelDificultad || 'Medio')}</span>
+      <span class="auto-badge" style="color:#ffa502;border-color:rgba(255,165,2,.4);background:rgba(255,165,2,.1)">${escHtml(auto.tipoContenido||'Video')}</span>
+      <span class="auto-badge" style="color:var(--color-green);border-color:rgba(16,185,129,.4);background:rgba(16,185,129,.1)">⏱ ${escHtml(auto.tiempoEstimado||'Variable')}</span>
+      <span class="auto-badge" style="color:var(--color-cyan);border-color:rgba(6,182,212,.4);background:rgba(6,182,212,.1)">💰 ${escHtml(auto.costoEstimado||'Variable')}</span>
+      <span class="auto-badge" style="color:var(--color-pink);border-color:rgba(247,37,133,.4);background:rgba(247,37,133,.1)">${escHtml(auto.nivelDificultad||'Medio')}</span>
     `;
 
-    const steps = $('autoSteps');
-    steps.innerHTML = '';
-    (auto.pasos || []).forEach(p => {
+    $('autoSteps').innerHTML = '';
+    (auto.pasos||[]).forEach(p => {
       const li = document.createElement('li');
       li.textContent = p;
-      steps.appendChild(li);
+      $('autoSteps').appendChild(li);
     });
 
-    $('autoTools').innerHTML = (auto.herramientas || []).map(t => `<span class="tool-chip">${escHtml(t)}</span>`).join('');
-    $('autoTip').textContent = auto.consejoClaveAuto || '';
+    $('autoTools').innerHTML = (auto.herramientas||[]).map(t=>`<span class="tool-chip">${escHtml(t)}</span>`).join('');
+    $('autoTip').textContent = auto.consejoClaveAuto||'';
 
     modalOverlay.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
@@ -296,46 +265,43 @@
     errorState.classList.add('hidden');
     videosGrid.classList.add('hidden');
   }
-
   function showVideos() {
     loadingState.classList.add('hidden');
     errorState.classList.add('hidden');
     videosGrid.classList.remove('hidden');
   }
-
   function showError() {
     loadingState.classList.add('hidden');
     errorState.classList.remove('hidden');
     videosGrid.classList.add('hidden');
   }
+  function showPipelineRunning() {
+    loadingState.querySelector('.loading-text').textContent = 'Agentes IA trabajando...';
+    loadingState.querySelector('.loading-sub').textContent = 'Recolectando y analizando videos de YouTube (~3 min)';
+    loadingState.classList.remove('hidden');
+    errorState.classList.add('hidden');
+    videosGrid.classList.add('hidden');
+  }
+  function hidePipelineStatus() {}
 
-  // ─── Next refresh (computed client-side) ───────────────────
-  function setNextRefreshLabel() {
-    const now = new Date();
-    const day = now.getUTCDay();
-    const daysUntilMonday = day === 0 ? 1 : 8 - day;
-    const nextMonday = new Date(now);
-    nextMonday.setUTCDate(now.getUTCDate() + daysUntilMonday);
-    nextMonday.setUTCHours(6, 0, 0, 0);
-    nextRefreshDate.textContent = nextMonday.toLocaleDateString('es-ES', {
-      weekday: 'long', day: 'numeric', month: 'long'
-    });
+  function updateWeekInfo(wk, nextRefresh) {
+    if (wk) weekKey.textContent = `Semana del ${wk}`;
+    if (nextRefresh) {
+      nextRefreshDate.textContent = new Date(nextRefresh).toLocaleDateString('es-ES', {
+        weekday: 'long', day: 'numeric', month: 'long'
+      });
+    }
   }
 
   // ─── Utils ─────────────────────────────────────────────────
   function escHtml(str) {
-    return String(str || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+    return String(str||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
-
   function formatNum(n) {
     if (!n) return '0';
-    if (n >= 1e9) return (n / 1e9).toFixed(1) + 'B';
-    if (n >= 1e6) return (n / 1e6).toFixed(1) + 'M';
-    if (n >= 1e3) return (n / 1e3).toFixed(1) + 'K';
+    if (n>=1e9) return (n/1e9).toFixed(1)+'B';
+    if (n>=1e6) return (n/1e6).toFixed(1)+'M';
+    if (n>=1e3) return (n/1e3).toFixed(1)+'K';
     return n.toString();
   }
 
@@ -343,53 +309,50 @@
   sidebarToggle.addEventListener('click', closeSidebar);
   menuBtn.addEventListener('click', toggleSidebar);
   modalClose.addEventListener('click', closeModal);
-  btnRetry.addEventListener('click', () => showCategory(currentCategory));
+  btnRetry.addEventListener('click', () => loadCategory(currentCategory));
+  modalOverlay.addEventListener('click', e => { if (e.target===modalOverlay) closeModal(); });
+  document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
 
-  modalOverlay.addEventListener('click', (e) => {
-    if (e.target === modalOverlay) closeModal();
-  });
-
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') closeModal();
+  btnRefresh.addEventListener('click', async () => {
+    btnRefresh.disabled = true;
+    btnRefresh.textContent = '↻ Iniciando...';
+    try {
+      await fetch('/api/refresh', { method: 'POST' });
+      showPipelineRunning();
+      startPoll(currentCategory);
+    } catch {}
+    setTimeout(() => {
+      btnRefresh.disabled = false;
+      btnRefresh.innerHTML = '<span>↻</span> Actualizar Ahora';
+    }, 5000);
   });
 
   // ─── Init ──────────────────────────────────────────────────
   async function init() {
     createParticles();
-    setNextRefreshLabel();
-
     try {
-      const res = await fetch('./data/cache.json');
-      if (!res.ok) throw new Error('No data');
-      const data = await res.json();
+      const [catRes, statusRes] = await Promise.all([
+        fetch('/api/categories'),
+        fetch('/api/status')
+      ]);
+      const catData = await catRes.json();
+      const status = await statusRes.json();
 
-      if (!data.categories || Object.keys(data.categories).length === 0) {
-        showError();
-        return;
-      }
-
-      allData = data;
-
-      // Build category list from the data itself
-      categories = Object.entries(data.categories).map(([key, cat]) => ({
-        key,
-        name: cat.meta.name,
-        icon: cat.meta.icon,
-        color: cat.meta.color,
-        description: cat.meta.description
-      }));
-
+      categories = catData.categories || [];
       buildSidebar(categories);
-      if (data.weekKey) weekKey.textContent = `Semana del ${data.weekKey}`;
 
-      showCategory(currentCategory);
+      if (status.nextRefresh) {
+        nextRefreshDate.textContent = new Date(status.nextRefresh).toLocaleDateString('es-ES', {
+          weekday: 'long', day: 'numeric', month: 'long'
+        });
+      }
+      if (status.weekKey) weekKey.textContent = `Semana del ${status.weekKey}`;
 
-    } catch (err) {
-      console.error('Init error:', err);
+      loadCategory(currentCategory);
+    } catch {
       showError();
     }
   }
 
-  // ─── Run ───────────────────────────────────────────────────
   init();
 })();

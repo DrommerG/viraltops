@@ -290,13 +290,26 @@ button { cursor: pointer; border: none; background: none; }
   border-top: 1px solid var(--border-card);
 }
 
-.sidebar-footer-note {
-  font-size: 11px;
-  color: var(--text-muted);
-  text-align: center;
-  padding: 4px 0;
-  opacity: 0.7;
+.btn-refresh {
+  width: 100%;
+  padding: 12px;
+  background: linear-gradient(135deg, var(--color-purple), var(--color-cyan));
+  color: white;
+  font-family: 'Rajdhani', sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  letter-spacing: 1px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: all var(--transition);
+  box-shadow: var(--glow-purple);
 }
+.btn-refresh:hover { transform: translateY(-2px); box-shadow: 0 0 30px rgba(124,58,237,.6); }
+.btn-refresh:active { transform: translateY(0); }
+.btn-refresh span { font-size: 18px; }
 
 /* ─── Top Bar ───────────────────────────────────────────────── */
 .topbar {
