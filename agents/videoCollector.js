@@ -16,7 +16,7 @@ async function run(categoryKeys) {
 
     console.log(`[VideoCollector] Procesando: ${config.name}`);
     try {
-      const videos = await fetchCategoryVideos(key, 50);
+      const videos = await fetchCategoryVideos(key, 80);
 
       const cleaned = videos
         .filter(v => v.id && v.snippet && v.statistics && v.status?.embeddable !== false)

@@ -10,7 +10,12 @@ const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 // Each category has: queries[], regionCodes[], categoryIds[], language hints
 const CATEGORY_STRATEGIES = {
   espanol: {
-    queries: ['tendencias viral', 'más visto semana'],
+    queries: [
+      'videos virales semana español',
+      'tendencias youtube latino 2026',
+      'viral youtube españa mexico argentina',
+      'lo mas visto youtube semana'
+    ],
     regionCode: 'MX',
     videoCategoryId: null,
     useChart: false,
@@ -19,7 +24,12 @@ const CATEGORY_STRATEGIES = {
     description: 'Los 20 videos más virales en español de las últimas 2 semanas'
   },
   ingles: {
-    queries: [null],
+    queries: [
+      'viral video trending 2026',
+      'most watched youtube this week',
+      'trending now viral english',
+      'most viewed youtube week'
+    ],
     regionCode: 'US',
     videoCategoryId: null,
     useChart: false,
