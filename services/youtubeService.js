@@ -5,20 +5,29 @@ const { getStrategy, getAllStrategies } = require('../agents/categoryResearcher'
 const BASE_URL = 'https://www.googleapis.com/youtube/v3';
 const API_KEY = process.env.YOUTUBE_API_KEY;
 
-function getLastMonthDate() {
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function getTwoWeeksAgo() {
   const d = new Date();
   d.setDate(d.getDate() - 14);
   return d.toISOString();
 }
 
+function getThirtyDaysAgo() {
+  const d = new Date();
+  d.setDate(d.getDate() - 30);
+  return d.toISOString();
+}
+
 async function fetchVideoDetails(videoIds) {
-  if (!videoIds) return [];
+  if (!videoIds || videoIds.length === 0) return [];
+  const ids = Array.isArray(videoIds) ? videoIds.join(',') : videoIds;
   try {
     const res = await axios.get(`${BASE_URL}/videos`, {
       params: {
         key: API_KEY,
         part: 'snippet,statistics,contentDetails,status',
-        id: videoIds
+        id: ids
       }
     });
     return res.data.items || [];
@@ -28,17 +37,18 @@ async function fetchVideoDetails(videoIds) {
   }
 }
 
+// Search with order=date (reliable with publishedAfter, unlike viewCount)
 async function fetchByQuery(query, opts = {}) {
   const params = {
     key: API_KEY,
     part: 'snippet',
     type: 'video',
     maxResults: opts.maxResults || 25,
-    order: 'viewCount',
+    order: 'date',        // IMPORTANT: 'date' is reliable; 'viewCount' breaks with publishedAfter
     safeSearch: opts.safeSearch || 'none'
   };
   if (query) params.q = query;
-  if (!opts.noDateFilter) params.publishedAfter = getLastMonthDate();
+  params.publishedAfter = opts.publishedAfter || getTwoWeeksAgo();
   if (opts.videoCategoryId) params.videoCategoryId = opts.videoCategoryId;
   if (opts.regionCode) params.regionCode = opts.regionCode;
   if (opts.relevanceLanguage) params.relevanceLanguage = opts.relevanceLanguage;
@@ -52,6 +62,7 @@ async function fetchByQuery(query, opts = {}) {
   }
 }
 
+// Fetch mostPopular chart — returns full video objects, NO date filter
 async function fetchByChart(opts = {}) {
   const params = {
     key: API_KEY,
@@ -71,35 +82,88 @@ async function fetchByChart(opts = {}) {
   }
 }
 
-async function fetchCategoryVideos(categoryKey, maxResults = 50) {
+/**
+ * Hybrid fetch: chart (most popular) + search (recent by date).
+ * - Chart gives truly popular videos regardless of date.
+ * - Search gives recently published videos (last 14 days).
+ * - Combined, then filtered to last 14 days (or 30 if not enough).
+ * - Sorted client-side by views + likes.
+ */
+async function fetchCategoryVideos(categoryKey, maxResults = 80) {
   const strategy = getStrategy(categoryKey);
+  const allVideos = new Map(); // deduplicate by video ID
 
-  // Chart-based fetch (mundial, historico)
-  if (strategy.useChart) {
-    return await fetchByChart({ maxResults, regionCode: strategy.regionCode, videoCategoryId: strategy.videoCategoryId });
+  // 1. Fetch mostPopular chart for each region
+  console.log(`[YouTube] Fetching charts for ${categoryKey} (regions: ${strategy.chartRegions.join(', ')})`);
+  for (const region of strategy.chartRegions) {
+    try {
+      const videos = await fetchByChart({ maxResults: 50, regionCode: region });
+      videos.forEach(v => {
+        if (v.id && typeof v.id === 'string') allVideos.set(v.id, v);
+      });
+      console.log(`[YouTube] Chart ${region}: ${videos.length} videos`);
+    } catch (e) {
+      console.error(`[YouTube] Chart error for ${region}:`, e.message);
+    }
+    await sleep(300);
   }
 
-  // Query-based fetch - run all queries and merge unique IDs
-  const allIds = new Set();
-  const perQuery = Math.ceil(maxResults / (strategy.queries.length || 1));
-
+  // 2. Search with date filter for each query
+  console.log(`[YouTube] Searching recent videos for ${categoryKey}...`);
   for (const query of strategy.queries) {
-    const ids = await fetchByQuery(query, {
-      maxResults: perQuery,
-      safeSearch: strategy.safeSearch,
-      videoCategoryId: strategy.videoCategoryId,
-      regionCode: strategy.regionCode,
-      relevanceLanguage: strategy.relevanceLanguage,
-      noDateFilter: strategy.noDateFilter
-    });
-    ids.forEach(id => allIds.add(id));
-    if (allIds.size >= maxResults) break;
-    await new Promise(r => setTimeout(r, 200));
+    try {
+      const ids = await fetchByQuery(query, {
+        maxResults: 25,
+        regionCode: strategy.chartRegions[0],
+        relevanceLanguage: strategy.relevanceLanguage,
+        safeSearch: strategy.safeSearch
+      });
+      if (ids.length > 0) {
+        // Batch fetch video details (1 API unit vs 100 for search)
+        const details = await fetchVideoDetails(ids);
+        details.forEach(v => {
+          if (v.id) allVideos.set(v.id, v);
+        });
+        console.log(`[YouTube] Search "${query}": ${ids.length} found`);
+      }
+    } catch (e) {
+      console.error(`[YouTube] Search error for "${query}":`, e.message);
+    }
+    await sleep(300);
   }
 
-  if (allIds.size === 0) return [];
-  const idString = [...allIds].slice(0, maxResults).join(',');
-  return await fetchVideoDetails(idString);
+  if (allVideos.size === 0) {
+    console.warn(`[YouTube] No videos found for ${categoryKey}`);
+    return [];
+  }
+
+  // 3. Filter by publish date
+  const twoWeeksAgo = new Date(getTwoWeeksAgo());
+  const thirtyDaysAgo = new Date(getThirtyDaysAgo());
+
+  let filtered = [...allVideos.values()].filter(v => {
+    const pub = new Date(v.snippet?.publishedAt);
+    return !isNaN(pub.getTime()) && pub >= twoWeeksAgo;
+  });
+
+  // Relax to 30 days if not enough results
+  if (filtered.length < 15) {
+    console.log(`[YouTube] Only ${filtered.length} videos in last 14 days for ${categoryKey}, relaxing to 30 days...`);
+    filtered = [...allVideos.values()].filter(v => {
+      const pub = new Date(v.snippet?.publishedAt);
+      return !isNaN(pub.getTime()) && pub >= thirtyDaysAgo;
+    });
+  }
+
+  // 4. Sort by views + likes (descending) — the actual viral ranking
+  filtered.sort((a, b) => {
+    const scoreA = parseInt(a.statistics?.viewCount || 0) * 0.6 + parseInt(a.statistics?.likeCount || 0) * 0.4;
+    const scoreB = parseInt(b.statistics?.viewCount || 0) * 0.6 + parseInt(b.statistics?.likeCount || 0) * 0.4;
+    return scoreB - scoreA;
+  });
+
+  console.log(`[YouTube] ${categoryKey}: ${filtered.length} videos after date filter (from ${allVideos.size} total)`);
+  return filtered.slice(0, maxResults);
 }
 
 async function fetchVideoComments(videoId, maxResults = 20) {
@@ -119,7 +183,7 @@ async function fetchVideoComments(videoId, maxResults = 20) {
   }
 }
 
-// CATEGORY_CONFIGS for backward compatibility with server.js /api/categories
+// CATEGORY_CONFIGS for /api/categories endpoint
 const strategies = getAllStrategies();
 const CATEGORY_CONFIGS = {
   espanol: { name: 'Top Español', icon: '🇪🇸', color: '#ff4757', description: strategies.espanol.description },

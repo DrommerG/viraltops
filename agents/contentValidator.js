@@ -1,72 +1,62 @@
 /**
  * AGENTE 5: CONTENT VALIDATOR
- * Valida que los videos pertenecen a su categoría usando OpenAI.
- * Filtra videos que no corresponden y organiza el resultado final.
+ * Filtra videos que no pertenecen al idioma de la categoría.
+ * Valida usando el título y nombre del canal.
  */
 const OpenAI = require('openai');
 const client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
-const CATEGORY_DESCRIPTIONS = {
-  mundial: 'cualquier video viral global',
-  espanol: 'video cuyo idioma principal es español',
-  ingles: 'video cuyo idioma principal es inglés',
-  ninos: 'contenido infantil apto para niños menores de 12 años',
-  videojuegos: 'contenido sobre videojuegos, gaming, gameplay o esports',
-  documentales: 'documental, reportaje o contenido educativo de larga duración',
-  entretenimiento: 'entretenimiento general, shows, reality, sketch comedy',
-  musica: 'video musical oficial o presentación musical',
-  ia: 'video generado o creado principalmente con inteligencia artificial',
-  deportes: 'deportes, atletismo, competencias deportivas',
-  tecnologia: 'tecnología, gadgets, software, innovación',
-  comedia: 'comedia, humor, sketches, stand-up',
-  historico: 'cualquier video muy popular'
+const CATEGORY_PROMPTS = {
+  espanol: `Clasifica si cada video es de contenido hispanohablante (español/latino).
+PERTENECE si: el título está en español, el canal es latinoamericano o español, o el contenido es claramente en español.
+NO PERTENECE si: el título es completamente en inglés Y el canal parece angloparlante (USA, UK, etc.).
+Canales gaming en inglés que salen en búsquedas mexicanas generalmente NO pertenecen.`,
+
+  ingles: `Classify if each video is English-language content.
+BELONGS if: the title is in English and the channel appears to be from USA, UK, Australia, or Canada.
+DOES NOT BELONG if: the title is in Spanish or the channel is clearly Latin American/Spanish.`
 };
 
-// Validate a batch of videos for a category using OpenAI
 async function validateBatch(videos, categoryKey) {
   if (!videos || videos.length === 0) return [];
-  if (categoryKey === 'mundial' || categoryKey === 'historico') return videos; // No filtering needed
 
-  const categoryDesc = CATEGORY_DESCRIPTIONS[categoryKey] || 'contenido general';
+  const categoryPrompt = CATEGORY_PROMPTS[categoryKey];
+  if (!categoryPrompt) return videos; // no filter for unknown categories
 
-  // Build a compact list for OpenAI to evaluate
-  const videoList = videos.slice(0, 20).map((v, i) =>
+  const videoList = videos.slice(0, 30).map((v, i) =>
     `${i}: "${v.title}" | Canal: ${v.channelTitle}`
   ).join('\n');
 
   try {
-    const prompt = `Eres un experto en clasificación de contenido de YouTube.
-
-CATEGORÍA: "${categoryDesc}"
-
-VIDEOS A EVALUAR:
-${videoList}
-
-Para cada video, decide si PERTENECE (true) o NO PERTENECE (false) a la categoría.
-Responde SOLO con JSON: {"results": [true, false, true, ...]} (un boolean por cada video en orden)`;
-
     const res = await client.chat.completions.create({
       model: 'gpt-4o-mini',
-      messages: [{ role: 'user', content: prompt }],
+      messages: [{
+        role: 'user',
+        content: `${categoryPrompt}
+
+VIDEOS:
+${videoList}
+
+Responde SOLO con JSON: {"results": [true, false, true, ...]} (true = pertenece, false = no pertenece)`
+      }],
       response_format: { type: 'json_object' },
-      max_tokens: 200,
+      max_tokens: 300,
       temperature: 0
     });
 
     const parsed = JSON.parse(res.choices[0].message.content);
     const results = parsed.results || [];
-
     const validated = videos.filter((_, i) => results[i] !== false);
-    console.log(`[ContentValidator] ${categoryKey}: ${videos.length} → ${validated.length} videos validados`);
+    console.log(`[ContentValidator] ${categoryKey}: ${videos.length} → ${validated.length} videos`);
     return validated;
   } catch (err) {
-    console.error(`[ContentValidator] Error validando ${categoryKey}:`, err.message);
-    return videos; // Return all if validation fails
+    console.error(`[ContentValidator] Error en ${categoryKey}:`, err.message);
+    return videos;
   }
 }
 
 async function validateAllCategories(rawData) {
-  console.log('[ContentValidator] Iniciando validación de categorías...');
+  console.log('[ContentValidator] Validando idioma de videos...');
   const validated = {};
 
   for (const [key, videos] of Object.entries(rawData)) {
@@ -75,7 +65,7 @@ async function validateAllCategories(rawData) {
       continue;
     }
     validated[key] = await validateBatch(videos, key);
-    await new Promise(r => setTimeout(r, 300));
+    await new Promise(r => setTimeout(r, 400));
   }
 
   return validated;

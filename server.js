@@ -8,6 +8,14 @@ const { loadCache, isStale, getNextRefreshDate } = require('./services/cacheServ
 const { runPipeline, isPipelineRunning } = require('./agents/orchestrator');
 const { CATEGORY_CONFIGS } = require('./services/youtubeService');
 
+// ─── Crash protection ──────────────────────────────────────────────────────────
+process.on('uncaughtException', (err) => {
+  console.error('[Server] Uncaught Exception (recovered):', err.message);
+});
+process.on('unhandledRejection', (reason) => {
+  console.error('[Server] Unhandled Rejection (recovered):', reason);
+});
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -17,7 +25,6 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 // ─── API Routes ────────────────────────────────────────────────────────────────
 
-// Get all category metadata (for sidebar)
 app.get('/api/categories', (req, res) => {
   const categories = Object.entries(CATEGORY_CONFIGS).map(([key, cfg]) => ({
     key,
@@ -29,7 +36,6 @@ app.get('/api/categories', (req, res) => {
   res.json({ categories });
 });
 
-// Get top 15 for a specific category
 app.get('/api/tops/:category', async (req, res) => {
   const { category } = req.params;
 
@@ -37,22 +43,22 @@ app.get('/api/tops/:category', async (req, res) => {
     return res.status(404).json({ error: 'Categoría no encontrada' });
   }
 
-  let cache = loadCache();
+  const cache = loadCache();
 
-  // If cache is stale and pipeline not running, trigger refresh
+  // Stale data → trigger refresh in background
   if (isStale() && !isPipelineRunning()) {
-    res.json({
+    runPipeline().catch(err => console.error('[Server] Pipeline error:', err.message));
+    return res.json({
       status: 'refreshing',
-      message: 'Actualizando datos semanales, esto puede tomar unos minutos...',
+      message: 'Actualizando datos semanales (~3-4 minutos)...',
       nextRefresh: getNextRefreshDate()
     });
-    runPipeline().catch(console.error);
-    return;
   }
 
+  // Pipeline running → let client poll
   if (!cache.categories || !cache.categories[category]) {
     if (!isPipelineRunning()) {
-      runPipeline().catch(console.error);
+      runPipeline().catch(err => console.error('[Server] Pipeline error:', err.message));
     }
     return res.json({
       status: 'loading',
@@ -64,19 +70,8 @@ app.get('/api/tops/:category', async (req, res) => {
   const categoryData = cache.categories[category];
   const videos = categoryData.videos || [];
 
-  if (videos.length === 0) {
-    return res.json({
-      status: 'no_data',
-      weekKey: cache.weekKey,
-      updatedAt: cache.updatedAt,
-      nextRefresh: getNextRefreshDate(),
-      meta: categoryData.meta,
-      videos: []
-    });
-  }
-
   res.json({
-    status: 'ok',
+    status: videos.length > 0 ? 'ok' : 'no_data',
     weekKey: cache.weekKey,
     updatedAt: cache.updatedAt,
     nextRefresh: getNextRefreshDate(),
@@ -85,7 +80,6 @@ app.get('/api/tops/:category', async (req, res) => {
   });
 });
 
-// Get all tops at once (for initial load)
 app.get('/api/tops', (req, res) => {
   const cache = loadCache();
   if (!cache.categories) {
@@ -100,16 +94,14 @@ app.get('/api/tops', (req, res) => {
   });
 });
 
-// Force refresh (manual trigger)
 app.post('/api/refresh', async (req, res) => {
   if (isPipelineRunning()) {
-    return res.json({ status: 'already_running', message: 'El pipeline ya está en ejecución' });
+    return res.json({ status: 'already_running' });
   }
-  res.json({ status: 'started', message: 'Pipeline de agentes iniciado' });
-  runPipeline().catch(console.error);
+  res.json({ status: 'started' });
+  runPipeline().catch(err => console.error('[Server] Pipeline error:', err.message));
 });
 
-// Pipeline status
 app.get('/api/status', (req, res) => {
   const cache = loadCache();
   res.json({
@@ -121,21 +113,25 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// ─── Weekly Cron Job (Every Monday at 00:00 UTC) ───────────────────────────────
-cron.schedule('0 0 * * 1', () => {
-  console.log('[Cron] Lunes - Iniciando actualización semanal de tops...');
-  runPipeline().catch(console.error);
+// Health check for Render
+app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// ─── Weekly Cron (Every Monday at 6:00 UTC) ────────────────────────────────────
+cron.schedule('0 6 * * 1', () => {
+  console.log('[Cron] Lunes — Iniciando actualización semanal...');
+  runPipeline().catch(err => console.error('[Cron] Pipeline error:', err.message));
 }, { timezone: 'UTC' });
 
-// ─── Start Server ──────────────────────────────────────────────────────────────
+// ─── Start ─────────────────────────────────────────────────────────────────────
 app.listen(PORT, async () => {
-  console.log(`\n🎮 YouTube Top Videos Server corriendo en http://localhost:${PORT}`);
-  console.log(`📅 Próxima actualización: ${new Date(getNextRefreshDate()).toLocaleDateString('es-ES', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}\n`);
+  console.log(`\n🎮 ViralTops corriendo en puerto ${PORT}`);
+  console.log(`📅 Próxima actualización: ${new Date(getNextRefreshDate()).toLocaleDateString('es-ES', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  })}\n`);
 
-  // Auto-run pipeline if cache is stale or empty
   if (isStale()) {
     console.log('[Server] Cache desactualizado. Iniciando pipeline...');
-    runPipeline().catch(console.error);
+    runPipeline().catch(err => console.error('[Server] Startup pipeline error:', err.message));
   } else {
     console.log('[Server] Cache actualizado. Datos listos.');
   }
