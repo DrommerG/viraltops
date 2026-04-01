@@ -9,6 +9,10 @@
   let categories = [];
   let currentVideos = [];
   let pollInterval = null;
+  let pollTargetKey = null;
+
+  // Cache en memoria: evita re-fetching al volver a una categoría ya cargada
+  const categoryCache = {};
 
   const $ = id => document.getElementById(id);
   const sidebar        = $('sidebar');
@@ -102,6 +106,16 @@
   async function loadCategory(key) {
     const cat = categories.find(c => c.key === key);
     if (cat) updateHero(cat);
+
+    // Si ya tenemos datos en caché, mostrar inmediatamente sin fetch
+    if (categoryCache[key]) {
+      stopPoll();
+      currentVideos = categoryCache[key].videos;
+      renderVideos(categoryCache[key].videos, cat);
+      updateWeekInfo(categoryCache[key].weekKey, categoryCache[key].nextRefresh);
+      return;
+    }
+
     showLoading();
 
     try {
@@ -115,6 +129,7 @@
       }
 
       if (data.status === 'ok' && data.videos?.length > 0) {
+        categoryCache[key] = { videos: data.videos, weekKey: data.weekKey, nextRefresh: data.nextRefresh };
         currentVideos = data.videos;
         renderVideos(data.videos, cat);
         updateWeekInfo(data.weekKey, data.nextRefresh);
@@ -129,17 +144,26 @@
   }
 
   function startPoll(key) {
-    if (pollInterval) return;
+    // Si ya hay un poll activo para esta misma clave, no duplicar
+    if (pollInterval && pollTargetKey === key) return;
+    stopPoll();
+
+    pollTargetKey = key;
     pollInterval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/tops/${key}`);
+        const res = await fetch(`/api/tops/${pollTargetKey}`);
         const data = await res.json();
         if (data.status === 'ok' && data.videos?.length > 0) {
-          currentVideos = data.videos;
-          const cat = categories.find(c => c.key === key);
-          renderVideos(data.videos, cat);
-          updateWeekInfo(data.weekKey, data.nextRefresh);
+          const k = pollTargetKey;
+          categoryCache[k] = { videos: data.videos, weekKey: data.weekKey, nextRefresh: data.nextRefresh };
           stopPoll();
+          // Solo actualizar la vista si el usuario sigue en esta categoría
+          if (currentCategory === k) {
+            currentVideos = data.videos;
+            const cat = categories.find(c => c.key === k);
+            renderVideos(data.videos, cat);
+            updateWeekInfo(data.weekKey, data.nextRefresh);
+          }
         }
       } catch { /* keep polling */ }
     }, 8000);
@@ -148,6 +172,7 @@
   function stopPoll() {
     clearInterval(pollInterval);
     pollInterval = null;
+    pollTargetKey = null;
     hidePipelineStatus();
   }
 
@@ -309,13 +334,19 @@
   sidebarToggle.addEventListener('click', closeSidebar);
   menuBtn.addEventListener('click', toggleSidebar);
   modalClose.addEventListener('click', closeModal);
-  btnRetry.addEventListener('click', () => loadCategory(currentCategory));
+  btnRetry.addEventListener('click', () => {
+    // Al reintentar, limpiar caché de esa categoría para forzar re-fetch
+    delete categoryCache[currentCategory];
+    loadCategory(currentCategory);
+  });
   modalOverlay.addEventListener('click', e => { if (e.target===modalOverlay) closeModal(); });
   document.addEventListener('keydown', e => { if (e.key==='Escape') closeModal(); });
 
   btnRefresh.addEventListener('click', async () => {
     btnRefresh.disabled = true;
     btnRefresh.textContent = '↻ Iniciando...';
+    // Limpiar caché completo para que los datos nuevos se muestren
+    Object.keys(categoryCache).forEach(k => delete categoryCache[k]);
     try {
       await fetch('/api/refresh', { method: 'POST' });
       showPipelineRunning();

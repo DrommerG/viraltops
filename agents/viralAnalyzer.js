@@ -7,29 +7,25 @@
 const { analyzeVirality, analyzeSentiment } = require('../services/openaiService');
 const { fetchVideoComments } = require('../services/youtubeService');
 
-// Calculate raw virality score (before AI analysis)
-function calculateViralityScore(video, maxViews, maxLikes) {
-  const normViews = maxViews > 0 ? video.viewCount / maxViews : 0;
-  const normLikes = maxLikes > 0 ? video.likeCount / maxLikes : 0;
-
-  return (normViews * 0.60) + (normLikes * 0.40);
+// Score basado únicamente en vistas (más vistas = más viral)
+function calculateViralityScore(video, maxViews) {
+  return maxViews > 0 ? video.viewCount / maxViews : 0;
 }
 
 async function analyzeCategory(videos, topN = 20) {
   if (!videos || videos.length === 0) return [];
 
-  // Calculate max values for normalization
+  // Calculate max views for normalization
   const maxViews = Math.max(...videos.map(v => v.viewCount));
-  const maxLikes = Math.max(...videos.map(v => v.likeCount));
 
-  // Score all videos
+  // Score all videos by views only
   const scored = videos.map(v => ({
     ...v,
-    viralityScore: calculateViralityScore(v, maxViews, maxLikes)
+    viralityScore: calculateViralityScore(v, maxViews)
   }));
 
-  // Sort by virality score and take top N
-  const top = scored.sort((a, b) => b.viralityScore - a.viralityScore).slice(0, topN);
+  // Sort by view count and take top N
+  const top = scored.sort((a, b) => b.viewCount - a.viewCount).slice(0, topN);
 
   console.log(`[ViralAnalyzer] Analizando top ${top.length} videos con OpenAI...`);
 

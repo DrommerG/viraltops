@@ -5,6 +5,8 @@
  */
 
 const { fetchCategoryVideos, CATEGORY_CONFIGS } = require('../services/youtubeService');
+const { filterExcludedContent, filterLongVideosOnly, filterShortsOnly } = require('./trendingDataAgent');
+const { filterByTitle } = require('./titleFilterAgent');
 
 async function run(categoryKeys) {
   console.log(`[VideoCollector] Iniciando recolección para ${categoryKeys.length} categorías...`);
@@ -31,16 +33,35 @@ async function run(categoryKeys) {
                      v.snippet.thumbnails?.high?.url ||
                      v.snippet.thumbnails?.medium?.url || '',
           tags: v.snippet.tags || [],
+          categoryId: v.snippet.categoryId || '',
+          defaultAudioLanguage: v.snippet.defaultAudioLanguage || '',
+          defaultLanguage: v.snippet.defaultLanguage || '',
           viewCount: parseInt(v.statistics.viewCount || 0),
           likeCount: parseInt(v.statistics.likeCount || 0),
           commentCount: parseInt(v.statistics.commentCount || 0),
           duration: v.contentDetails?.duration || '',
           embeddable: v.status?.embeddable ?? true,
+          topicIds: v.topicDetails?.topicIds || [],
+          topicCategories: v.topicDetails?.topicCategories || [],
           categoryKey: key
         }));
 
-      results[key] = cleaned;
-      console.log(`[VideoCollector] ${config.name}: ${cleaned.length} videos recolectados`);
+      // PASO 1: Filtro por título (palabras prohibidas — 100% determinista)
+      const titleFiltered = filterByTitle(cleaned);
+
+      // PASO 2: Filtro por contenido (categoría YouTube + topicDetails + patrones)
+      const contentFiltered = filterExcludedContent(titleFiltered);
+
+      // PASO 3: Filtro por duración según tipo de categoría
+      let durationFiltered;
+      if (config.type === 'shorts') {
+        durationFiltered = filterShortsOnly(contentFiltered);
+      } else {
+        durationFiltered = filterLongVideosOnly(contentFiltered);
+      }
+
+      results[key] = durationFiltered;
+      console.log(`[VideoCollector] ${config.name}: ${durationFiltered.length} videos finales (de ${cleaned.length} recolectados)`);
       await new Promise(r => setTimeout(r, 400));
     } catch (err) {
       console.error(`[VideoCollector] Error en ${key}:`, err.message);

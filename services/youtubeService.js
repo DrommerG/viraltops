@@ -7,6 +7,16 @@ const API_KEY = process.env.YOUTUBE_API_KEY;
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Parsea duración ISO 8601 → segundos (PT4M30S → 270)
+function parseDurationSeconds(iso) {
+  if (!iso) return 0;
+  const m = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || 0) * 3600) + (parseInt(m[2] || 0) * 60) + (parseInt(m[3] || 0));
+}
+
+const SHORTS_MAX_SECONDS = 180;
+
 function getTwoWeeksAgo() {
   const d = new Date();
   d.setDate(d.getDate() - 14);
@@ -26,7 +36,7 @@ async function fetchVideoDetails(videoIds) {
     const res = await axios.get(`${BASE_URL}/videos`, {
       params: {
         key: API_KEY,
-        part: 'snippet,statistics,contentDetails,status',
+        part: 'snippet,statistics,contentDetails,status,topicDetails',
         id: ids
       }
     });
@@ -37,21 +47,21 @@ async function fetchVideoDetails(videoIds) {
   }
 }
 
-// Search with order=date (reliable with publishedAfter, unlike viewCount)
 async function fetchByQuery(query, opts = {}) {
   const params = {
     key: API_KEY,
     part: 'snippet',
     type: 'video',
     maxResults: opts.maxResults || 25,
-    order: 'date',        // IMPORTANT: 'date' is reliable; 'viewCount' breaks with publishedAfter
+    order: opts.order || 'relevance',
     safeSearch: opts.safeSearch || 'none'
   };
   if (query) params.q = query;
-  params.publishedAfter = opts.publishedAfter || getTwoWeeksAgo();
+  if (opts.publishedAfter) params.publishedAfter = opts.publishedAfter;
   if (opts.videoCategoryId) params.videoCategoryId = opts.videoCategoryId;
   if (opts.regionCode) params.regionCode = opts.regionCode;
   if (opts.relevanceLanguage) params.relevanceLanguage = opts.relevanceLanguage;
+  if (opts.videoDuration) params.videoDuration = opts.videoDuration;
 
   try {
     const res = await axios.get(`${BASE_URL}/search`, { params });
@@ -62,11 +72,10 @@ async function fetchByQuery(query, opts = {}) {
   }
 }
 
-// Fetch mostPopular chart — returns full video objects, NO date filter
 async function fetchByChart(opts = {}) {
   const params = {
     key: API_KEY,
-    part: 'snippet,statistics,contentDetails,status',
+    part: 'snippet,statistics,contentDetails,status,topicDetails',
     chart: 'mostPopular',
     maxResults: opts.maxResults || 50
   };
@@ -82,88 +91,133 @@ async function fetchByChart(opts = {}) {
   }
 }
 
-/**
- * Hybrid fetch: chart (most popular) + search (recent by date).
- * - Chart gives truly popular videos regardless of date.
- * - Search gives recently published videos (last 14 days).
- * - Combined, then filtered to last 14 days (or 30 if not enough).
- * - Sorted client-side by views + likes.
- */
+// YouTube category IDs safe (no music, no movies)
+const SAFE_CHART_CATEGORIES = ['20', '22', '23', '24', '25', '26', '27', '28'];
+
 async function fetchCategoryVideos(categoryKey, maxResults = 80) {
   const strategy = getStrategy(categoryKey);
-  const allVideos = new Map(); // deduplicate by video ID
+  const isShorts = strategy.isShorts || false;
+  const allVideos = new Map();
 
-  // 1. Fetch mostPopular chart for each region
-  console.log(`[YouTube] Fetching charts for ${categoryKey} (regions: ${strategy.chartRegions.join(', ')})`);
-  for (const region of strategy.chartRegions) {
-    try {
-      const videos = await fetchByChart({ maxResults: 50, regionCode: region });
-      videos.forEach(v => {
-        if (v.id && typeof v.id === 'string') allVideos.set(v.id, v);
-      });
-      console.log(`[YouTube] Chart ${region}: ${videos.length} videos`);
-    } catch (e) {
-      console.error(`[YouTube] Chart error for ${region}:`, e.message);
-    }
-    await sleep(300);
-  }
+  if (!isShorts) {
+    // ── Videos largos: usar chart + búsqueda con fecha ──────────────────────
+    const chartRegions = strategy.chartRegions.slice(0, 3);
+    console.log(`[YouTube] Charts para ${categoryKey}: ${chartRegions.join(', ')}`);
 
-  // 2. Search with date filter for each query
-  console.log(`[YouTube] Searching recent videos for ${categoryKey}...`);
-  for (const query of strategy.queries) {
-    try {
-      const ids = await fetchByQuery(query, {
-        maxResults: 25,
-        regionCode: strategy.chartRegions[0],
-        relevanceLanguage: strategy.relevanceLanguage,
-        safeSearch: strategy.safeSearch
-      });
-      if (ids.length > 0) {
-        // Batch fetch video details (1 API unit vs 100 for search)
-        const details = await fetchVideoDetails(ids);
-        details.forEach(v => {
-          if (v.id) allVideos.set(v.id, v);
-        });
-        console.log(`[YouTube] Search "${query}": ${ids.length} found`);
+    for (const region of chartRegions) {
+      for (const catId of SAFE_CHART_CATEGORIES) {
+        try {
+          const videos = await fetchByChart({ maxResults: 20, regionCode: region, videoCategoryId: catId });
+          videos.forEach(v => {
+            if (v.id && typeof v.id === 'string') allVideos.set(v.id, v);
+          });
+        } catch (e) {
+          console.error(`[YouTube] Chart error ${region}/${catId}:`, e.message);
+        }
+        await sleep(200);
       }
-    } catch (e) {
-      console.error(`[YouTube] Search error for "${query}":`, e.message);
     }
-    await sleep(300);
-  }
+    console.log(`[YouTube] Charts: ${allVideos.size} videos únicos`);
 
-  if (allVideos.size === 0) {
-    console.warn(`[YouTube] No videos found for ${categoryKey}`);
-    return [];
-  }
+    // Búsqueda reciente (últimas 2 semanas)
+    for (const query of strategy.queries) {
+      try {
+        const ids = await fetchByQuery(query, {
+          maxResults: 25,
+          order: 'date',
+          publishedAfter: getTwoWeeksAgo(),
+          regionCode: strategy.chartRegions[0],
+          relevanceLanguage: strategy.relevanceLanguage,
+          safeSearch: strategy.safeSearch,
+        });
+        if (ids.length > 0) {
+          const details = await fetchVideoDetails(ids);
+          details.forEach(v => { if (v.id) allVideos.set(v.id, v); });
+          console.log(`[YouTube] Search "${query}": ${ids.length}`);
+        }
+      } catch (e) {
+        console.error(`[YouTube] Search error "${query}":`, e.message);
+      }
+      await sleep(300);
+    }
 
-  // 3. Filter by publish date
-  const twoWeeksAgo = new Date(getTwoWeeksAgo());
-  const thirtyDaysAgo = new Date(getThirtyDaysAgo());
+    // Filtrar por fecha de publicación
+    const twoWeeksAgo = new Date(getTwoWeeksAgo());
+    const thirtyDaysAgo = new Date(getThirtyDaysAgo());
 
-  let filtered = [...allVideos.values()].filter(v => {
-    const pub = new Date(v.snippet?.publishedAt);
-    return !isNaN(pub.getTime()) && pub >= twoWeeksAgo;
-  });
-
-  // Relax to 30 days if not enough results
-  if (filtered.length < 15) {
-    console.log(`[YouTube] Only ${filtered.length} videos in last 14 days for ${categoryKey}, relaxing to 30 days...`);
-    filtered = [...allVideos.values()].filter(v => {
+    let filtered = [...allVideos.values()].filter(v => {
       const pub = new Date(v.snippet?.publishedAt);
-      return !isNaN(pub.getTime()) && pub >= thirtyDaysAgo;
+      return !isNaN(pub.getTime()) && pub >= twoWeeksAgo;
     });
+
+    if (filtered.length < 15) {
+      console.log(`[YouTube] Solo ${filtered.length} videos en 14 días, ampliando a 30...`);
+      filtered = [...allVideos.values()].filter(v => {
+        const pub = new Date(v.snippet?.publishedAt);
+        return !isNaN(pub.getTime()) && pub >= thirtyDaysAgo;
+      });
+    }
+
+    // Pre-filtrar: eliminar Shorts (≤180s) ANTES de ordenar y cortar
+    // Esto garantiza que devolvemos videos largos, no Shorts que dominan las vistas
+    const longOnly = filtered.filter(v => {
+      const secs = parseDurationSeconds(v.contentDetails?.duration || '');
+      return secs === 0 || secs > SHORTS_MAX_SECONDS; // 0 = sin datos → asumir largo
+    });
+
+    const pool = longOnly.length >= 20 ? longOnly : filtered; // fallback si muy pocos
+    if (longOnly.length < filtered.length) {
+      console.log(`[YouTube] Pre-filtro long videos: ${filtered.length} → ${pool.length}`);
+    }
+
+    pool.sort((a, b) =>
+      parseInt(b.statistics?.viewCount || 0) - parseInt(a.statistics?.viewCount || 0)
+    );
+
+    console.log(`[YouTube] ${categoryKey}: ${pool.length} videos largos disponibles`);
+    return pool.slice(0, maxResults);
+
+  } else {
+    // ── Shorts: usar SOLO búsqueda con videoDuration=short ──────────────────
+    // El chart no devuelve Shorts. Usamos búsqueda por relevancia sin filtro de fecha
+    // para encontrar los Shorts más virales.
+    console.log(`[YouTube] Buscando Shorts para ${categoryKey}...`);
+
+    for (const query of strategy.queries) {
+      try {
+        const ids = await fetchByQuery(query, {
+          maxResults: 50,
+          order: 'relevance',
+          // Sin publishedAfter — los Shorts virales pueden ser recientes o de hace semanas
+          regionCode: strategy.chartRegions[0],
+          relevanceLanguage: strategy.relevanceLanguage,
+          safeSearch: strategy.safeSearch,
+          videoDuration: 'short',  // YouTube filtra videos < 4 minutos
+        });
+        if (ids.length > 0) {
+          const details = await fetchVideoDetails(ids);
+          details.forEach(v => { if (v.id) allVideos.set(v.id, v); });
+          console.log(`[YouTube] Shorts search "${query}": ${ids.length}`);
+        }
+      } catch (e) {
+        console.error(`[YouTube] Shorts search error "${query}":`, e.message);
+      }
+      await sleep(300);
+    }
+
+    if (allVideos.size === 0) {
+      console.warn(`[YouTube] No Shorts encontrados para ${categoryKey}`);
+      return [];
+    }
+
+    // Ordenar por vistas
+    const sorted = [...allVideos.values()].sort((a, b) =>
+      parseInt(b.statistics?.viewCount || 0) - parseInt(a.statistics?.viewCount || 0)
+    );
+
+    console.log(`[YouTube] ${categoryKey}: ${sorted.length} Shorts recolectados`);
+    return sorted.slice(0, maxResults);
   }
-
-  // 4. Sort by views + likes (descending) — the actual viral ranking
-  filtered.sort((a, b) => {
-    const scoreA = parseInt(a.statistics?.viewCount || 0) * 0.6 + parseInt(a.statistics?.likeCount || 0) * 0.4;
-    const scoreB = parseInt(b.statistics?.viewCount || 0) * 0.6 + parseInt(b.statistics?.likeCount || 0) * 0.4;
-    return scoreB - scoreA;
-  });
-
-  console.log(`[YouTube] ${categoryKey}: ${filtered.length} videos after date filter (from ${allVideos.size} total)`);
-  return filtered.slice(0, maxResults);
 }
 
 async function fetchVideoComments(videoId, maxResults = 20) {
@@ -183,11 +237,12 @@ async function fetchVideoComments(videoId, maxResults = 20) {
   }
 }
 
-// CATEGORY_CONFIGS for /api/categories endpoint
 const strategies = getAllStrategies();
 const CATEGORY_CONFIGS = {
-  espanol: { name: 'Top Español', icon: '🇪🇸', color: '#ff4757', description: strategies.espanol.description },
-  ingles:  { name: 'Top Inglés',  icon: '🇺🇸', color: '#4cc9f0', description: strategies.ingles.description }
+  espanol:       { name: 'Top Español',        icon: '🇪🇸', color: '#ff4757', description: strategies.espanol.description,       type: 'long'   },
+  ingles:        { name: 'Top Inglés',          icon: '🇺🇸', color: '#4cc9f0', description: strategies.ingles.description,        type: 'long'   },
+  espanolShorts: { name: 'Top Shorts Español',  icon: '📱', color: '#ff6b35', description: strategies.espanolShorts.description,  type: 'shorts' },
+  inglesShorts:  { name: 'Top Shorts Inglés',   icon: '📲', color: '#7c3aed', description: strategies.inglesShorts.description,   type: 'shorts' }
 };
 
 module.exports = { fetchCategoryVideos, fetchVideoDetails, fetchVideoComments, CATEGORY_CONFIGS };

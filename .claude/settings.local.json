@@ -7,7 +7,9 @@
       "Read(//c/Program Files \\(x86\\)/**)",
       "Read(//c/Users/dgarz/**)",
       "WebFetch(domain:render.com)",
-      "WebFetch(domain:developers.google.com)"
+      "WebFetch(domain:developers.google.com)",
+      "WebFetch(domain:gist.github.com)",
+      "Bash(ls:*)"
     ]
   }
 }
