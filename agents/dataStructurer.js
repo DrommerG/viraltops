@@ -76,6 +76,15 @@ function structureVideo(video) {
 function run(analyzedData) {
   console.log('[DataStructurer] Estructurando y guardando datos...');
 
+  // Protección: si todas las categorías tienen 0 videos, es probable que sea
+  // un fallo de quota de API. En ese caso, no sobreescribir el caché existente.
+  const totalVideos = Object.values(analyzedData).reduce((sum, v) => sum + (v?.length || 0), 0);
+  if (totalVideos === 0) {
+    console.warn('[DataStructurer] ⚠️ Todas las categorías tienen 0 videos. Posible fallo de quota. Caché existente preservado.');
+    const { loadCache } = require('../services/cacheService');
+    return loadCache();
+  }
+
   const structured = {};
 
   for (const [key, videos] of Object.entries(analyzedData)) {
