@@ -13,14 +13,8 @@ const SUBSCRIBER_THRESHOLD = 30_000_000; // 30 millones
 
 // Mega-canales conocidos que siempre dominan el top
 const BLOCKED_NAMES = [
+  // English mega-channels
   'mrbeast', 'beast philanthropy', 'mrbeast gaming', 'mrbeast reacts', 'mr beast',
-  'elrubius', 'rubius', 'rubiusomg',
-  'fede vigevani',
-  'mikecrack',
-  'vegetta777',
-  'willyrex',
-  'thegrefg', 'grefg',
-  'auronplay',
   'pewdiepie',
   'markiplier',
   'jacksepticeye',
@@ -33,6 +27,27 @@ const BLOCKED_NAMES = [
   'pinkfong',
   "ryan's world", 'ryan world',
   'set india',
+  // Spanish mega-channels
+  'elrubius', 'rubius', 'rubiusomg',
+  'fede vigevani',
+  'mikecrack',
+  'vegetta777',
+  'willyrex',
+  'thegrefg', 'grefg',
+  'auronplay',
+  'juegagerman', 'juega german',
+  'luisito comunica',
+  'badabun',
+  'yolo aventuras',
+  'kenia os',
+  'dosogas',
+  'werevertumorro',
+  'alex montrey',
+  'alfredo larin',
+  'ricky limon',
+  'mau mcmahon',
+  'karla bustillos',
+  // Music labels
   'zee music',
   'sony music',
   'universal music',

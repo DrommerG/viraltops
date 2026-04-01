@@ -119,7 +119,7 @@ async function fetchCategoryVideos(categoryKey, maxResults = 80) {
     }
     console.log(`[YouTube] Charts: ${allVideos.size} videos únicos`);
 
-    // Búsqueda reciente (últimas 2 semanas)
+    // Búsqueda reciente (últimas 2 semanas) — solo videos largos (>4 min)
     for (const query of strategy.queries) {
       try {
         const ids = await fetchByQuery(query, {
@@ -129,6 +129,7 @@ async function fetchCategoryVideos(categoryKey, maxResults = 80) {
           regionCode: strategy.chartRegions[0],
           relevanceLanguage: strategy.relevanceLanguage,
           safeSearch: strategy.safeSearch,
+          videoDuration: 'medium', // 4-20 min: excluye Shorts de los resultados de búsqueda
         });
         if (ids.length > 0) {
           const details = await fetchVideoDetails(ids);
@@ -188,7 +189,7 @@ async function fetchCategoryVideos(categoryKey, maxResults = 80) {
         const ids = await fetchByQuery(query, {
           maxResults: 50,
           order: 'relevance',
-          // Sin publishedAfter — los Shorts virales pueden ser recientes o de hace semanas
+          publishedAfter: getThirtyDaysAgo(), // Últimos 30 días — evita videos muy viejos
           regionCode: strategy.chartRegions[0],
           relevanceLanguage: strategy.relevanceLanguage,
           safeSearch: strategy.safeSearch,
