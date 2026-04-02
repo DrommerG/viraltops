@@ -4,8 +4,9 @@ const cors = require('cors');
 const cron = require('node-cron');
 const path = require('path');
 
-const { loadCache, isStale, getNextRefreshDate } = require('./services/cacheService');
+const { loadCache, saveCache, isStale, getNextRefreshDate, getCurrentWeekKey } = require('./services/cacheService');
 const { runPipeline, isPipelineRunning } = require('./agents/orchestrator');
+const { loadSnapshot } = require('./agents/weeklySnapshotAgent');
 const { CATEGORY_CONFIGS } = require('./services/youtubeService');
 
 // ─── Crash protection ──────────────────────────────────────────────────────────
@@ -128,6 +129,18 @@ app.listen(PORT, async () => {
   console.log(`📅 Próxima actualización: ${new Date(getNextRefreshDate()).toLocaleDateString('es-ES', {
     weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
   })}\n`);
+
+  // Intentar restaurar el top semanal desde GitHub Gist antes de decidir si re-ejecutar el pipeline
+  try {
+    const snapshot = await loadSnapshot();
+    if (snapshot && snapshot.weekKey === getCurrentWeekKey()) {
+      saveCache(snapshot);
+      console.log('[Server] Top semanal restaurado desde Gist — no es necesario re-ejecutar el pipeline.');
+      return;
+    }
+  } catch (err) {
+    console.error('[Server] Error al cargar snapshot:', err.message);
+  }
 
   if (isStale()) {
     console.log('[Server] Cache desactualizado. Iniciando pipeline...');

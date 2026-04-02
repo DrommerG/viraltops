@@ -1,22 +1,26 @@
 /**
  * AGENTE ORQUESTADOR
  * Coordina el pipeline completo:
- * 1. VideoCollector      → recolecta videos (chart + búsqueda) y filtra música/trailers/series
- * 2. ChannelFilterAgent  → filtra canales con 30M+ suscriptores
- * 3. ContentValidator    → filtra por idioma (defaultAudioLanguage + OpenAI)
- * 4. ViralQualityAgent   → filtra vistas mínimas y rankea por calidad viral
- * 5. ViralAnalyzer       → analiza viralidad con OpenAI
- * 6. AutomationAnalyzer  → explica cómo automatizar cada video
- * 7. DataStructurer      → estructura y guarda en caché
+ * 1. VideoCollector          → recolecta videos (chart + búsqueda) y filtra música/trailers/series
+ * 2. ChannelFilterAgent      → filtra canales con 30M+ suscriptores
+ * 3. ContentValidator        → filtra por idioma (defaultAudioLanguage + OpenAI)
+ * 4. ViralQualityAgent       → filtra vistas mínimas y rankea por calidad viral
+ * 5. DeepViralResearchAgent  → rankea por velocidad de vistas + engagement real
+ * 6. ViralAnalyzer           → analiza viralidad con OpenAI
+ * 7. AutomationAnalyzer      → explica cómo automatizar cada video
+ * 8. DataStructurer          → estructura y guarda en caché
+ * 9. WeeklySnapshotAgent     → persiste el top en GitHub Gist (sobrevive reinicios de Render)
  */
 
 const videoCollector = require('./videoCollector');
 const { filterMegaChannels } = require('./channelFilterAgent');
 const { validateAllCategories } = require('./contentValidator');
 const { filterAndRankByQuality } = require('./viralQualityAgent');
+const { researchDeepVirality } = require('./deepViralResearchAgent');
 const { analyzeCategory } = require('./viralAnalyzer');
 const { analyzeAutomationBatch } = require('./automationAnalyzer');
 const dataStructurer = require('./dataStructurer');
+const { saveSnapshot } = require('./weeklySnapshotAgent');
 const { CATEGORY_CONFIGS } = require('../services/youtubeService');
 
 let isRunning = false;
@@ -69,11 +73,19 @@ async function runPipeline() {
       qualityData[key] = filterAndRankByQuality(videos, key);
     }
 
-    // AGENTE 5: Analizar viralidad con OpenAI
-    console.log('\n--- AGENTE 5: ViralAnalyzer ---');
-    const analyzedData = {};
+    // AGENTE 5: Investigación viral profunda (velocidad de vistas + engagement)
+    console.log('\n--- AGENTE 5: DeepViralResearchAgent ---');
+    const deepData = {};
     for (const key of categoryKeys) {
       const videos = qualityData[key] || [];
+      deepData[key] = researchDeepVirality(videos, 40);
+    }
+
+    // AGENTE 6: Analizar viralidad con OpenAI
+    console.log('\n--- AGENTE 6: ViralAnalyzer ---');
+    const analyzedData = {};
+    for (const key of categoryKeys) {
+      const videos = deepData[key] || [];
       if (videos.length > 0) {
         console.log(`[ViralAnalyzer] ${key}: ${videos.length} videos`);
         analyzedData[key] = await analyzeCategory(videos, 20);
@@ -84,8 +96,8 @@ async function runPipeline() {
       }
     }
 
-    // AGENTE 6: Analizar automatización
-    console.log('\n--- AGENTE 6: AutomationAnalyzer ---');
+    // AGENTE 7: Analizar automatización
+    console.log('\n--- AGENTE 7: AutomationAnalyzer ---');
     const finalData = {};
     for (const key of categoryKeys) {
       if (analyzedData[key] && analyzedData[key].length > 0) {
@@ -96,9 +108,15 @@ async function runPipeline() {
       }
     }
 
-    // AGENTE 7: Estructurar y guardar
-    console.log('\n--- AGENTE 7: DataStructurer ---');
+    // AGENTE 8: Estructurar y guardar en caché local
+    console.log('\n--- AGENTE 8: DataStructurer ---');
     const result = dataStructurer.run(finalData);
+
+    // AGENTE 9: Persistir en GitHub Gist (sobrevive reinicios de Render)
+    console.log('\n--- AGENTE 9: WeeklySnapshotAgent ---');
+    if (result && result.weekKey) {
+      await saveSnapshot(result);
+    }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);
     console.log(`\n=== [Orchestrator] PIPELINE COMPLETADO en ${elapsed}s ===\n`);

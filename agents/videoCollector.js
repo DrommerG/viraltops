@@ -5,7 +5,7 @@
  */
 
 const { fetchCategoryVideos, CATEGORY_CONFIGS } = require('../services/youtubeService');
-const { filterExcludedContent, filterLongVideosOnly, filterShortsOnly } = require('./trendingDataAgent');
+const { filterExcludedContent, filterLongVideosOnly, filterShortsOnly, parseDurationSeconds } = require('./trendingDataAgent');
 const { filterByTitle } = require('./titleFilterAgent');
 
 async function run(categoryKeys) {
@@ -53,9 +53,15 @@ async function run(categoryKeys) {
       const contentFiltered = filterExcludedContent(titleFiltered);
 
       // PASO 3: Filtro por duración según tipo de categoría
+      // Para Shorts: doble pasada para garantizar que ningún video largo pase
       let durationFiltered;
       if (config.type === 'shorts') {
         durationFiltered = filterShortsOnly(contentFiltered);
+        // Segunda pasada de seguridad: verificar que todos tengan duración válida
+        durationFiltered = durationFiltered.filter(v => {
+          const secs = parseDurationSeconds(v.duration);
+          return secs > 0 && secs <= 180;
+        });
       } else {
         durationFiltered = filterLongVideosOnly(contentFiltered);
       }
