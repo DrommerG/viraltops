@@ -6,7 +6,7 @@ const path = require('path');
 
 const { loadCache, saveCache, isStale, getNextRefreshDate, getCurrentWeekKey } = require('./services/cacheService');
 const { runPipeline, isPipelineRunning } = require('./agents/orchestrator');
-const { loadSnapshot } = require('./agents/weeklySnapshotAgent');
+const { loadSnapshot, saveSnapshot } = require('./agents/weeklySnapshotAgent');
 const { CATEGORY_CONFIGS } = require('./services/youtubeService');
 
 // ─── Crash protection ──────────────────────────────────────────────────────────
@@ -116,6 +116,18 @@ app.get('/api/status', (req, res) => {
 
 // Health check for Render
 app.get('/health', (req, res) => res.json({ status: 'ok' }));
+
+// Reset Gist + local cache — fuerza un pipeline limpio en el próximo reinicio
+app.post('/api/reset-cache', async (req, res) => {
+  try {
+    await saveSnapshot({});
+    saveCache({});
+    console.log('[Server] Cache y Gist reseteados.');
+    res.json({ status: 'reset_ok', message: 'Cache limpiado. Reinicia el servidor para re-ejecutar el pipeline.' });
+  } catch (err) {
+    res.status(500).json({ status: 'error', message: err.message });
+  }
+});
 
 // ─── Weekly Cron (Every Monday at 6:00 UTC) ────────────────────────────────────
 cron.schedule('0 6 * * 1', () => {

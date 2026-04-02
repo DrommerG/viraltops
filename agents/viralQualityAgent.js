@@ -7,9 +7,9 @@
 const MIN_VIEWS = {
   espanol:       200_000,
   ingles:        400_000,
-  espanolShorts: 100_000,   // Shorts virales en español
-  inglesShorts:  200_000,   // Shorts virales en inglés
-  default:       100_000
+  espanolShorts:  30_000,   // Shorts virales en español (pool limitado, umbral bajo)
+  inglesShorts:   80_000,   // Shorts virales en inglés (pool limitado, umbral bajo)
+  default:        50_000
 };
 
 function filterAndRankByQuality(videos, categoryKey) {
