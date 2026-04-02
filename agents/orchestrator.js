@@ -113,9 +113,19 @@ async function runPipeline() {
     const result = dataStructurer.run(finalData);
 
     // AGENTE 9: Persistir en GitHub Gist (sobrevive reinicios de Render)
+    // Solo guardar si todas las categorías tienen al menos 5 videos (evita guardar resultados parciales)
     console.log('\n--- AGENTE 9: WeeklySnapshotAgent ---');
-    if (result && result.weekKey) {
-      await saveSnapshot(result);
+    if (result && result.weekKey && result.categories) {
+      const allCatsHaveVideos = Object.values(result.categories)
+        .every(cat => (cat?.videos?.length || 0) >= 5);
+      if (allCatsHaveVideos) {
+        await saveSnapshot(result);
+      } else {
+        const counts = Object.entries(result.categories)
+          .map(([k, v]) => `${k}:${v?.videos?.length || 0}`)
+          .join(', ');
+        console.warn(`[WeeklySnapshot] Resultado incompleto (${counts}), no se guardó en Gist.`);
+      }
     }
 
     const elapsed = ((Date.now() - startTime) / 1000).toFixed(1);

@@ -130,6 +130,14 @@ async function validateBatch(videos, categoryKey) {
   const preFiltered = preFilterByAudioLanguage(videos, categoryKey);
   if (preFiltered.length === 0) return [];
 
+  // Para Shorts, los filtros de queries/región/título ya garantizan el idioma correcto.
+  // El análisis de OpenAI es demasiado agresivo para Shorts (títulos cortos = muchas dudas → false).
+  const isShorts = categoryKey === 'espanolShorts' || categoryKey === 'inglesShorts';
+  if (isShorts) {
+    console.log(`[ContentValidator] ${categoryKey}: ${videos.length} → ${preFiltered.length} videos (solo pre-filtro audio, sin OpenAI)`);
+    return preFiltered;
+  }
+
   const categoryPrompt = CATEGORY_PROMPTS[categoryKey];
   if (!categoryPrompt) return preFiltered;
 
